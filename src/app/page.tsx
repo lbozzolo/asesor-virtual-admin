@@ -5,7 +5,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
 import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { chat } from '@/ai/flows/chat-flow';
 
 import { InvoiceModal } from '@/components/chatbot/invoice-modal';
 import { ChatMessage } from '@/components/chatbot/chat-message';
@@ -141,20 +140,41 @@ export default function ChatbotPage() {
     }
   }, [isLoading]);
 
-  const callGenkitFlow = async (currentMessages: Message[], userInput: string) => {
-    let botResponseText = '';
+  const callChatApi = async (currentMessages: Message[], userInput: string) => {
     try {
-      botResponseText = await chat({
-        history: currentMessages,
-        prompt: userInput,
-        systemPrompt: systemPrompt,
-        availableCourses: cursos,
+        const isCourseQuery = cursos.some(course => 
+          userInput.toLowerCase().includes(course.toLowerCase())
+        );
+        const coursesList = cursos.length > 0 
+            ? `Aquí tienes la lista actualizada de cursos disponibles en Studyx: ${cursos.join(', ')}.` 
+            : 'Actualmente no hay cursos disponibles.';
+        
+        const fullPrompt = `${isCourseQuery ? coursesList : ''}\n\n${userInput}`.trim();
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          history: currentMessages,
+          prompt: fullPrompt,
+          systemPrompt,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`API call failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.text;
+
     } catch (error) {
-      console.error("Error calling Genkit flow:", error);
+      console.error("Error calling chat API:", error);
       setErrorMessage("Error de conexión - Espere y vuelva a intentar");
+      return '';
     }
-    return botResponseText;
   };
 
   const updateConversationInFirestore = async (data: any) => {
@@ -242,7 +262,7 @@ export default function ChatbotPage() {
         return;
     }
 
-    const botResponseText = await callGenkitFlow(messages, userInput);
+    const botResponseText = await callChatApi(messages, userInput);
     const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
 
     if (trimmedResponse.includes('[INICIAR_REGISTRO]')) {
