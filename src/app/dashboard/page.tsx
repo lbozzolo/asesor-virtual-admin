@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricsDashboard } from "@/components/metrics-dashboard";
 import { LeadsTable } from "@/components/leads-table";
 import { ChatTranscript } from "@/components/chat-transcript";
-import type { Lead } from "@/types";
+import type { Lead, Message } from "@/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProtectedLayout } from "@/components/protected-layout";
 import { db } from "@/lib/firebase";
@@ -18,7 +19,7 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-
+  
   useEffect(() => {
     const q = query(collection(db, "conversations"));
     
@@ -28,21 +29,27 @@ export default function DashboardPage() {
         
         let lastContactDate: Date;
         const contactTimestamp = data.updatedAt || data.createdAt;
+
         if (contactTimestamp instanceof Timestamp) {
             lastContactDate = contactTimestamp.toDate();
         } else if (typeof contactTimestamp === 'string' && contactTimestamp) {
             lastContactDate = new Date(contactTimestamp);
-        } else {
+        } else if (contactTimestamp && typeof contactTimestamp.toDate === 'function') { // Handle Firestore Timestamp object from a different context
+            lastContactDate = contactTimestamp.toDate();
+        }
+        else {
             lastContactDate = new Date();
         }
-          
+        
+        const customerName = data.customerData?.nombre || "Nombre no disponible";
+
         return {
           id: doc.id,
-          customerName: data.customerName || "Nombre no disponible",
-          customerAvatar: data.customerAvatar || `https://placehold.co/100x100.png`,
+          customerName: customerName,
+          customerAvatar: `https://placehold.co/100x100.png`,
           advisorName: data.advisorName || "Asesor no asignado",
-          advisorAvatar: data.advisorAvatar || `https://placehold.co/100x100.png`,
-          status: data.status || "Potencial",
+          advisorAvatar: `https://placehold.co/100x100.png`,
+          status: data.status || "Iniciado",
           lastContact: formatDistanceToNow(lastContactDate, { addSuffix: true, locale: es }),
           messages: data.messages || [],
         } as Lead;
@@ -92,7 +99,7 @@ export default function DashboardPage() {
                 <ChatTranscript 
                   lead={selectedLead} 
                   transcript={selectedLead.messages} 
-                  loading={false} 
+                  loading={false}
                 />
               </ScrollArea>
             </>
