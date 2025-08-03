@@ -25,8 +25,15 @@ interface UserData {
 
 // Helper function to get user's custom claims (role)
 const getUserRole = async (uid: string): Promise<UserRole> => {
-    const userRecord = await admin.auth().getUser(uid);
-    return (userRecord.customClaims?.role || "operador") as UserRole;
+    try {
+        const userRecord = await admin.auth().getUser(uid);
+        return (userRecord.customClaims?.role || "operador") as UserRole;
+    } catch (error) {
+        logger.error(`Error getting user role for uid: ${uid}`, error);
+        // Return a default role if user is not found to avoid crashing.
+        // The calling function should handle permissions based on this.
+        return "operador";
+    }
 };
 
 // Cloud Function to create a user
@@ -35,9 +42,6 @@ export const createUser = onCall(async (request) => {
 
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Debes estar autenticado para crear usuarios.");
-    }
-    
-    const-legacy, minúsculas y números.");
     }
 
     const { email, password, role } = request.data;
@@ -59,11 +63,13 @@ export const createUser = onCall(async (request) => {
         const userRecord = await admin.auth().createUser({
             email,
             password,
-            emailVerified: true, // Opcional
+            emailVerified: true,
         });
 
+        // Set custom claims for the user's role
         await admin.auth().setCustomUserClaims(userRecord.uid, { role });
 
+        // Create user document in Firestore
         await db.collection("users").doc(userRecord.uid).set({
             email: userRecord.email,
             role: role,
@@ -93,7 +99,8 @@ export const updateUserRole = onCall(async (request) => {
     }
 
     const requesterRole = await getUserRole(request.auth.uid);
-    const targetUserRole = await getUserRole(uid);
+    const targetUserRecord = await admin.auth().getUser(uid);
+    const targetUserRole = (targetUserRecord.customClaims?.role || "operador") as UserRole;
     
     // Hierarchy check
     const roleHierarchy = { "operador": 1, "admin": 2, "superadmin": 3 };
@@ -108,6 +115,7 @@ export const updateUserRole = onCall(async (request) => {
     try {
         await admin.auth().setCustomUserClaims(uid, { role });
         await db.collection("users").doc(uid).update({ role });
+        logger.info(`User role updated successfully for UID: ${uid} to ${role}`);
         return { success: true };
     } catch (error) {
         logger.error("Error updating user role:", error);
@@ -130,7 +138,8 @@ export const toggleUserSuspension = onCall(async (request) => {
     }
 
     const requesterRole = await getUserRole(request.auth.uid);
-    const targetUserRole = await getUserRole(uid);
+    const targetUserRecord = await admin.auth().getUser(uid);
+    const targetUserRole = (targetUserRecord.customClaims?.role || "operador") as UserRole;
     
     // Hierarchy check
     const roleHierarchy = { "operador": 1, "admin": 2, "superadmin": 3 };
@@ -141,6 +150,7 @@ export const toggleUserSuspension = onCall(async (request) => {
     try {
         await admin.auth().updateUser(uid, { disabled: suspend });
         await db.collection("users").doc(uid).update({ suspended: suspend });
+        logger.info(`User suspension toggled for UID: ${uid}. Suspended: ${suspend}`);
         return { success: true, message: `Usuario ${suspend ? "suspendido" : "reactivado"}.` };
     } catch (error) {
         logger.error("Error toggling user suspension:", error);

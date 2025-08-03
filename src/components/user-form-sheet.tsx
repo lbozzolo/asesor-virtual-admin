@@ -48,29 +48,17 @@ const passwordSchema = z.string().min(8, "La contraseña debe tener al menos 8 c
   .regex(/[A-Z]/, "Debe contener al menos una mayúscula.")
   .regex(/[0-9]/, "Debe contener al menos un número.");
 
-const formSchema = z.object({
+const baseSchema = z.object({
   email: z.string().email({ message: "Correo electrónico inválido." }),
-  password: z.string().optional(),
   role: z.enum(["admin", "operador", "superadmin"]),
-}).refine(data => {
-    // La contraseña es requerida solo si no hay un usuario existente (modo creación)
-    return !!data.email && (!data.email.includes('@') || !!data.password);
-}, {
-    message: "La contraseña es requerida.",
-    path: ["password"],
-}).refine(data => {
-    // Si la contraseña existe, debe cumplir el schema
-    return !data.password || passwordSchema.safeParse(data.password).success;
-}, {
-    message: "La contraseña no cumple con los requisitos de seguridad.",
-    path: ["password"],
 });
 
-
-const editFormSchema = z.object({
-    email: z.string().email({ message: "Correo electrónico inválido." }),
-    role: z.enum(["admin", "operador", "superadmin"]),
+const createUserSchema = baseSchema.extend({
+    password: passwordSchema,
 });
+
+const editUserSchema = baseSchema;
+
 
 export function UserFormSheet({ isOpen, onClose, user }: UserFormSheetProps) {
   const { appUser: currentUser } = useAuth();
@@ -79,46 +67,45 @@ export function UserFormSheet({ isOpen, onClose, user }: UserFormSheetProps) {
   const functions = getFunctions(firebaseApp);
   const isEditMode = !!user;
 
-  const currentFormSchema = isEditMode ? editFormSchema : formSchema.refine(
-    (data) => !isEditMode ? !!data.password : true,
-    { message: "La contraseña es obligatoria", path: ["password"] }
-  ).refine(
-    (data) => !data.password || passwordSchema.safeParse(data.password).success,
-    { message: "La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas y números.", path: ["password"] }
-  );
-  
-  const form = useForm<z.infer<typeof currentFormSchema>>({
-    resolver: zodResolver(currentFormSchema),
+  const form = useForm({
+    resolver: zodResolver(isEditMode ? editUserSchema : createUserSchema),
     defaultValues: {
       email: "",
-      role: "operador",
+      password: "",
+      role: "operador" as UserRole,
     },
   });
 
   useEffect(() => {
-    if (user) {
-      form.reset({
-        email: user.email ?? '',
-        role: user.role,
-      });
-    } else {
-      form.reset({
-        email: "",
-        password: "",
-        role: "operador",
-      });
+    if (isOpen) {
+        if (user) {
+          form.reset({
+            email: user.email ?? '',
+            role: user.role,
+          });
+        } else {
+          form.reset({
+            email: "",
+            password: "",
+            role: "operador",
+          });
+        }
     }
   }, [user, form, isOpen]);
 
 
-  const onSubmit = async (values: z.infer<typeof currentFormSchema>) => {
+  const onSubmit = async (values: z.infer<typeof baseSchema> | z.infer<typeof createUserSchema>) => {
     setLoading(true);
 
     try {
         if (isEditMode && user) {
-            const updateUserRole = httpsCallable(functions, 'updateUserRole');
-            await updateUserRole({ uid: user.uid, role: values.role });
-            toast({ title: "Éxito", description: "El rol del usuario ha sido actualizado." });
+            if (user.role !== values.role) {
+                const updateUserRole = httpsCallable(functions, 'updateUserRole');
+                await updateUserRole({ uid: user.uid, role: values.role });
+                toast({ title: "Éxito", description: "El rol del usuario ha sido actualizado." });
+            } else {
+                 toast({ title: "Sin cambios", description: "No se ha modificado el rol del usuario." });
+            }
         } else {
             const createUserAccount = httpsCallable(functions, 'createUser');
             await createUserAccount(values);
@@ -138,13 +125,16 @@ export function UserFormSheet({ isOpen, onClose, user }: UserFormSheetProps) {
   };
 
   const roleOptions: UserRole[] = currentUser?.role === 'superadmin' 
-    ? ["admin", "operador", "superadmin"] 
-    : ["operador"];
+    ? ["superadmin", "admin", "operador"] 
+    : ["admin", "operador"];
   
-  const targetUserRole = user?.role;
-
-  const canEditRole = currentUser?.role === 'superadmin' || 
-                      (currentUser?.role === 'admin' && targetUserRole === 'operador');
+  const canEditRole = () => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'superadmin') return true;
+    if (currentUser.role === 'admin' && user?.role === 'operador') return true;
+    if (currentUser.role === 'admin' && !isEditMode) return true; // Can create operators
+    return false;
+  }
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -194,7 +184,7 @@ export function UserFormSheet({ isOpen, onClose, user }: UserFormSheetProps) {
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Rol</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEditRole}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!canEditRole()}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Selecciona un rol" />
@@ -202,8 +192,11 @@ export function UserFormSheet({ isOpen, onClose, user }: UserFormSheetProps) {
                         </FormControl>
                         <SelectContent>
                         {roleOptions.map(role => (
-                            <SelectItem key={role} value={role} className="capitalize"
-                            disabled={currentUser?.role === 'admin' && role === 'admin'}>
+                            <SelectItem 
+                                key={role} 
+                                value={role} 
+                                className="capitalize"
+                                disabled={currentUser?.role === 'admin' && (role === 'admin' || role === 'superadmin')}>
                             {role}
                             </SelectItem>
                         ))}
