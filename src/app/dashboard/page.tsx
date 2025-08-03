@@ -34,8 +34,6 @@ export default function DashboardPage() {
         } else if (typeof data.lastContact === 'string' && data.lastContact) {
             lastContactDate = new Date(data.lastContact);
         } else {
-            // Si no hay fecha de último contacto, podemos usar la fecha en que se creó el documento, si existe.
-            // Si no, usamos la fecha actual como último recurso.
             lastContactDate = doc.createTime ? doc.createTime.toDate() : new Date();
         }
           
@@ -67,13 +65,23 @@ export default function DashboardPage() {
 
     setTranscriptLoading(true);
     const messagesRef = collection(db, "conversations", selectedLead.id, "messages");
-    const q = query(messagesRef, orderBy("timestamp", "asc"));
+    // Se elimina el `orderBy` para evitar problemas con los índices de Firestore.
+    // El ordenamiento se hará en el cliente.
+    const q = query(messagesRef);
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const messagesData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as Message));
+
+        // Ordenar los mensajes en el lado del cliente
+        messagesData.sort((a, b) => {
+            const dateA = a.timestamp instanceof Timestamp ? a.timestamp.toDate() : new Date(a.timestamp as string);
+            const dateB = b.timestamp instanceof Timestamp ? b.timestamp.toDate() : new Date(b.timestamp as string);
+            return dateA.getTime() - dateB.getTime();
+        });
+
         setTranscript(messagesData);
         setTranscriptLoading(false);
     }, (error) => {
