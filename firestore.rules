@@ -1,28 +1,13 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user has a specific role
-    function isRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
-    }
-    
-    // Helper function to check if a user has one of the specified roles
-    function hasOneOfRoles(roles) {
-      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return userRole in roles;
-    }
-
     match /users/{userId} {
-      // Allow read and write only for admins and superadmins
-      allow read, write: if request.auth != null && hasOneOfRoles(['admin', 'superadmin']);
+      allow read, write: if request.auth != null;
     }
 
-    // You should add rules for your other collections here.
-    // For example, if you have a 'conversations' collection:
-    // match /conversations/{conversationId} {
-    //   allow read, write: if request.auth != null; // Example: Allow any authenticated user
-    // }
+    match /conversations/{conversationId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }

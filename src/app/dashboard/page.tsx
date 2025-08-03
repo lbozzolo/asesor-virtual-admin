@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getFirestore, collection, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, query, Timestamp } from "firebase/firestore";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricsDashboard } from "@/components/metrics-dashboard";
@@ -21,8 +21,8 @@ export default function DashboardPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   useEffect(() => {
-    // Ordenamos por `lastContact` de forma descendente para ver las más recientes primero.
-    const q = query(collection(db, "conversations"), orderBy("lastContact", "desc"));
+    // Consulta simplificada para asegurar que traemos los datos.
+    const q = query(collection(db, "conversations"));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const leadsData = snapshot.docs.map(doc => {
@@ -32,10 +32,10 @@ export default function DashboardPage() {
         let lastContactDate: Date;
         if (data.lastContact instanceof Timestamp) {
             lastContactDate = data.lastContact.toDate();
-        } else if (typeof data.lastContact === 'string') {
+        } else if (typeof data.lastContact === 'string' && data.lastContact) {
             lastContactDate = new Date(data.lastContact);
         } else {
-            // Si no hay fecha, usamos la fecha actual como fallback.
+            // Si no hay fecha o es inválida, usamos la fecha actual como fallback.
             lastContactDate = new Date(); 
         }
           
