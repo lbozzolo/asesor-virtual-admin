@@ -17,19 +17,23 @@ const formatTimestamp = (timestamp: any): string => {
     if (!timestamp) return '';
     try {
         let date: Date;
+        // Handle Firestore Timestamp objects
         if (timestamp.toDate && typeof timestamp.toDate === 'function') {
             date = timestamp.toDate();
         } 
+        // Handle ISO 8601 strings
         else if (typeof timestamp === 'string') {
             date = new Date(timestamp);
         }
+        // Handle object with seconds and nanoseconds (another Firestore format)
         else if (timestamp.seconds !== undefined && timestamp.nanoseconds !== undefined) {
              date = new Timestamp(timestamp.seconds, timestamp.nanoseconds).toDate();
         }
         else {
-            return '';
+            return ''; // Return empty if format is unknown
         }
         
+        // Check if the date is valid
         if (isNaN(date.getTime())) {
             return '';
         }
@@ -65,6 +69,15 @@ export function ChatTranscript({ lead, transcript, loading }: ChatTranscriptProp
         </div>
       </div>
     )
+  }
+  
+  if (transcript.length === 0) {
+      return (
+          <div className="flex flex-col items-center justify-center text-center text-muted-foreground pt-10">
+              <p>No se encontraron mensajes para esta conversación.</p>
+              <p className="text-xs mt-2">Es posible que la conversación recién haya comenzado.</p>
+          </div>
+      )
   }
 
   return (

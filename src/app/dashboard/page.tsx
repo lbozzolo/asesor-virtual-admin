@@ -34,7 +34,9 @@ export default function DashboardPage() {
         } else if (typeof data.lastContact === 'string' && data.lastContact) {
             lastContactDate = new Date(data.lastContact);
         } else {
-            lastContactDate = new Date(); 
+            // Si no hay fecha de último contacto, podemos usar la fecha en que se creó el documento, si existe.
+            // Si no, usamos la fecha actual como último recurso.
+            lastContactDate = doc.createTime ? doc.createTime.toDate() : new Date();
         }
           
         return {
@@ -76,6 +78,7 @@ export default function DashboardPage() {
         setTranscriptLoading(false);
     }, (error) => {
         console.error("Error al obtener mensajes de la subcolección:", error);
+        setTranscript([]);
         setTranscriptLoading(false);
     });
     
