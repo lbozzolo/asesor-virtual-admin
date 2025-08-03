@@ -4,33 +4,32 @@ import type { Lead, Message } from "@/types";
 import { Timestamp } from "firebase/firestore";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 type ChatTranscriptProps = {
   lead: Lead;
+  transcript: Message[];
+  loading: boolean;
 };
 
 const formatTimestamp = (timestamp: any): string => {
     if (!timestamp) return '';
     try {
         let date: Date;
-        // Firestore Timestamps have toDate() method
         if (timestamp.toDate && typeof timestamp.toDate === 'function') {
             date = timestamp.toDate();
         } 
-        // Handle ISO strings or other date string formats
         else if (typeof timestamp === 'string') {
             date = new Date(timestamp);
         }
-        // Handle seconds/nanoseconds object from Firestore if not a Timestamp instance
         else if (timestamp.seconds !== undefined && timestamp.nanoseconds !== undefined) {
              date = new Timestamp(timestamp.seconds, timestamp.nanoseconds).toDate();
         }
         else {
-            return ''; // Return empty if format is unknown
+            return '';
         }
         
-        // Check if the date is valid
         if (isNaN(date.getTime())) {
             return '';
         }
@@ -43,17 +42,36 @@ const formatTimestamp = (timestamp: any): string => {
 };
 
 
-export function ChatTranscript({ lead }: ChatTranscriptProps) {
+export function ChatTranscript({ lead, transcript, loading }: ChatTranscriptProps) {
   const getInitials = (name: string) => {
     if (!name || typeof name !== 'string') return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start gap-3 justify-start">
+            <Skeleton className="h-8 w-8 rounded-full border" />
+            <Skeleton className="h-20 w-3/4 rounded-lg" />
+        </div>
+        <div className="flex items-start gap-3 justify-end">
+            <Skeleton className="h-16 w-3/4 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-full border" />
+        </div>
+        <div className="flex items-start gap-3 justify-start">
+            <Skeleton className="h-8 w-8 rounded-full border" />
+            <Skeleton className="h-12 w-1/2 rounded-lg" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      {(lead.transcript || []).map((message: Message, index: number) => (
+      {transcript.map((message: Message) => (
         <div
-          key={index}
+          key={message.id}
           className={cn(
             "flex items-start gap-3",
             message.sender === "user" ? "justify-start" : "justify-end"
