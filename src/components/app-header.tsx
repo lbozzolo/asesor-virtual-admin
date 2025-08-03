@@ -20,7 +20,7 @@ export function AppHeader() {
 
   const handleLogout = async () => {
     await logout();
-    router.push("/");
+    router.push("/login");
   };
   
   const canManageUsers = appUser?.role === 'admin' || appUser?.role === 'superadmin';

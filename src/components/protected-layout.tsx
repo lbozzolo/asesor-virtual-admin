@@ -36,7 +36,7 @@ export function ProtectedLayout({ children, allowedRoles }: ProtectedLayoutProps
   }
 
   if (!user) {
-    router.push('/');
+    router.push('/login');
     return null;
   }
   
