@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getFirestore, collection, onSnapshot, query, Timestamp, orderBy } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, query, Timestamp } from "firebase/firestore";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricsDashboard } from "@/components/metrics-dashboard";
 import { LeadsTable } from "@/components/leads-table";
 import { ChatTranscript } from "@/components/chat-transcript";
-import type { Lead, Message } from "@/types";
+import type { Lead } from "@/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProtectedLayout } from "@/components/protected-layout";
 import { db } from "@/lib/firebase";
@@ -18,8 +18,6 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [transcript, setTranscript] = useState<Message[]>([]);
-  const [transcriptLoading, setTranscriptLoading] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "conversations"));
@@ -29,12 +27,13 @@ export default function DashboardPage() {
         const data = doc.data();
         
         let lastContactDate: Date;
-        if (data.lastContact instanceof Timestamp) {
-            lastContactDate = data.lastContact.toDate();
-        } else if (typeof data.lastContact === 'string' && data.lastContact) {
-            lastContactDate = new Date(data.lastContact);
+        const contactTimestamp = data.updatedAt || data.createdAt;
+        if (contactTimestamp instanceof Timestamp) {
+            lastContactDate = contactTimestamp.toDate();
+        } else if (typeof contactTimestamp === 'string' && contactTimestamp) {
+            lastContactDate = new Date(contactTimestamp);
         } else {
-            lastContactDate = doc.createTime ? doc.createTime.toDate() : new Date();
+            lastContactDate = new Date();
         }
           
         return {
@@ -45,6 +44,7 @@ export default function DashboardPage() {
           advisorAvatar: data.advisorAvatar || `https://placehold.co/100x100.png`,
           status: data.status || "Potencial",
           lastContact: formatDistanceToNow(lastContactDate, { addSuffix: true, locale: es }),
+          messages: data.messages || [],
         } as Lead;
       });
       setLeads(leadsData);
@@ -56,43 +56,6 @@ export default function DashboardPage() {
 
     return () => unsubscribe();
   }, []);
-  
-  useEffect(() => {
-    if (!selectedLead) {
-        setTranscript([]);
-        return;
-    }
-
-    setTranscriptLoading(true);
-    const messagesRef = collection(db, "conversations", selectedLead.id, "messages");
-    // Se elimina el `orderBy` para evitar problemas con los índices de Firestore.
-    // El ordenamiento se hará en el cliente.
-    const q = query(messagesRef);
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const messagesData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as Message));
-
-        // Ordenar los mensajes en el lado del cliente
-        messagesData.sort((a, b) => {
-            const dateA = a.timestamp instanceof Timestamp ? a.timestamp.toDate() : new Date(a.timestamp as string);
-            const dateB = b.timestamp instanceof Timestamp ? b.timestamp.toDate() : new Date(b.timestamp as string);
-            return dateA.getTime() - dateB.getTime();
-        });
-
-        setTranscript(messagesData);
-        setTranscriptLoading(false);
-    }, (error) => {
-        console.error("Error al obtener mensajes de la subcolección:", error);
-        setTranscript([]);
-        setTranscriptLoading(false);
-    });
-    
-    return () => unsubscribe();
-  }, [selectedLead]);
-
 
   const handleViewLead = (lead: Lead) => {
     setSelectedLead(lead);
@@ -128,8 +91,8 @@ export default function DashboardPage() {
               <ScrollArea className="flex-1 px-6 py-4">
                 <ChatTranscript 
                   lead={selectedLead} 
-                  transcript={transcript} 
-                  loading={transcriptLoading} 
+                  transcript={selectedLead.messages} 
+                  loading={false} 
                 />
               </ScrollArea>
             </>

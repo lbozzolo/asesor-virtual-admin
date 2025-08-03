@@ -1,9 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { Lead, Message } from "@/types";
-import { Timestamp } from "firebase/firestore";
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { Skeleton } from "@/components/ui/skeleton";
 
 
@@ -12,39 +9,6 @@ type ChatTranscriptProps = {
   transcript: Message[];
   loading: boolean;
 };
-
-const formatTimestamp = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-        let date: Date;
-        // Handle Firestore Timestamp objects
-        if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-            date = timestamp.toDate();
-        } 
-        // Handle ISO 8601 strings
-        else if (typeof timestamp === 'string') {
-            date = new Date(timestamp);
-        }
-        // Handle object with seconds and nanoseconds (another Firestore format)
-        else if (timestamp.seconds !== undefined && timestamp.nanoseconds !== undefined) {
-             date = new Timestamp(timestamp.seconds, timestamp.nanoseconds).toDate();
-        }
-        else {
-            return ''; // Return empty if format is unknown
-        }
-        
-        // Check if the date is valid
-        if (isNaN(date.getTime())) {
-            return '';
-        }
-
-        return format(date, "PPpp", { locale: es });
-    } catch (error) {
-        console.error("Error formatting timestamp:", error, "with value:", timestamp);
-        return '';
-    }
-};
-
 
 export function ChatTranscript({ lead, transcript, loading }: ChatTranscriptProps) {
   const getInitials = (name: string) => {
@@ -71,10 +35,10 @@ export function ChatTranscript({ lead, transcript, loading }: ChatTranscriptProp
     )
   }
   
-  if (transcript.length === 0) {
+  if (!transcript || transcript.length === 0) {
       return (
           <div className="flex flex-col items-center justify-center text-center text-muted-foreground pt-10">
-              <p>No se encontraron mensajes para esta conversación.</p>
+              <p>No se encontraron messages para esta conversación.</p>
               <p className="text-xs mt-2">Es posible que la conversación recién haya comenzado.</p>
           </div>
       )
@@ -82,41 +46,41 @@ export function ChatTranscript({ lead, transcript, loading }: ChatTranscriptProp
 
   return (
     <div className="space-y-6">
-      {transcript.map((message: Message) => (
-        <div
-          key={message.id}
-          className={cn(
-            "flex items-start gap-3",
-            message.sender === "user" ? "justify-start" : "justify-end"
-          )}
-        >
-          {message.sender === "user" && (
-            <Avatar className="h-8 w-8 border">
-              <AvatarImage src={lead.customerAvatar} alt={lead.customerName} data-ai-hint="person portrait" />
-              <AvatarFallback>{getInitials(lead.customerName)}</AvatarFallback>
-            </Avatar>
-          )}
-          <div
-            className={cn(
-              "max-w-[75%] rounded-lg p-3 text-sm",
-              message.sender === "user"
-                ? "bg-muted"
-                : "bg-primary text-primary-foreground"
+      {transcript.map((message, index) => {
+        const sender = message.role === 'user' ? 'user' : 'advisor';
+        return (
+            <div
+                key={index}
+                className={cn(
+                    "flex items-start gap-3",
+                    sender === "user" ? "justify-start" : "justify-end"
+                )}
+            >
+            {sender === "user" && (
+                <Avatar className="h-8 w-8 border">
+                <AvatarImage src={lead.customerAvatar} alt={lead.customerName} data-ai-hint="person portrait" />
+                <AvatarFallback>{getInitials(lead.customerName)}</AvatarFallback>
+                </Avatar>
             )}
-          >
-            <p className="mb-1">{message.text || "Mensaje no disponible"}</p>
-            <p className={cn("text-xs", message.sender === 'user' ? 'text-muted-foreground' : 'text-primary-foreground/70')}>
-                {formatTimestamp(message.timestamp)}
-            </p>
-          </div>
-          {message.sender === "advisor" && (
-            <Avatar className="h-8 w-8 border">
-              <AvatarImage src={lead.advisorAvatar} alt={lead.advisorName} data-ai-hint="person professional" />
-              <AvatarFallback>{getInitials(lead.advisorName)}</AvatarFallback>
-            </Avatar>
-          )}
-        </div>
-      ))}
+            <div
+                className={cn(
+                "max-w-[75%] rounded-lg p-3 text-sm",
+                sender === "user"
+                    ? "bg-muted"
+                    : "bg-primary text-primary-foreground"
+                )}
+            >
+                <p>{message.text || "Mensaje no disponible"}</p>
+            </div>
+            {sender === "advisor" && (
+                <Avatar className="h-8 w-8 border">
+                <AvatarImage src={lead.advisorAvatar} alt={lead.advisorName} data-ai-hint="person professional" />
+                <AvatarFallback>{getInitials(lead.advisorName)}</AvatarFallback>
+                </Avatar>
+            )}
+            </div>
+        )
+      })}
     </div>
   );
 }

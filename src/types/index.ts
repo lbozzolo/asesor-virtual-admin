@@ -3,20 +3,19 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
 export type Message = {
-  id: string;
-  sender: 'user' | 'advisor';
+  role: 'user' | 'model';
   text: string;
-  timestamp: Timestamp | string; // Puede ser un timestamp de Firestore o un string
 };
 
 export type Lead = {
-  id: string;
+  id:string;
   customerName: string; 
   customerAvatar?: string;
   advisorName: string;
   advisorAvatar?: string;
-  status: 'Potencial' | 'Cualificado' | 'Cerrado' | 'Perdido';
+  status: 'Potencial' | 'Cualificado' | 'Cerrado' | 'Perdido' | 'Iniciado';
   lastContact: string;
+  messages: Message[];
 };
 
 export type UserRole = "superadmin" | "admin" | "operador";
