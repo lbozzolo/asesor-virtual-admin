@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,27 +21,32 @@ export default function DashboardPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   useEffect(() => {
+    // Ordenamos por `lastContact` de forma descendente para ver las más recientes primero.
     const q = query(collection(db, "conversations"), orderBy("lastContact", "desc"));
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const leadsData = snapshot.docs.map(doc => {
         const data = doc.data();
         
+        // Manejo flexible de fechas:
         let lastContactDate: Date;
         if (data.lastContact instanceof Timestamp) {
             lastContactDate = data.lastContact.toDate();
         } else if (typeof data.lastContact === 'string') {
             lastContactDate = new Date(data.lastContact);
         } else {
-            lastContactDate = new Date(); // Fallback to current date
+            // Si no hay fecha, usamos la fecha actual como fallback.
+            lastContactDate = new Date(); 
         }
           
         return {
           id: doc.id,
+          // Usamos valores por defecto si los campos no existen
           customerName: data.customerName || "Nombre no disponible",
           customerAvatar: data.customerAvatar || `https://placehold.co/100x100.png`,
           advisorName: data.advisorName || "Asesor no asignado",
           advisorAvatar: data.advisorAvatar || `https://placehold.co/100x100.png`,
-          status: data.status || "Potencial",
+          status: data.status || "Potencial", // Estado por defecto
           lastContact: formatDistanceToNow(lastContactDate, { addSuffix: true, locale: es }),
           transcript: data.transcript || [],
         } as Lead;

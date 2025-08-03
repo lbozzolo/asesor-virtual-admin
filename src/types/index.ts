@@ -1,3 +1,4 @@
+
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -9,12 +10,12 @@ export type Message = {
 
 export type Lead = {
   id: string;
-  customerName: string;
-  customerAvatar: string;
-  advisorName: string;
-  advisorAvatar: string;
+  customerName: string; // Se mantendrá como string, con valor por defecto "Nombre no disponible"
+  customerAvatar?: string; // Avatar puede ser opcional
+  advisorName: string; // Se mantendrá como string, con valor por defecto
+  advisorAvatar?: string; // Avatar puede ser opcional
   status: 'Potencial' | 'Cualificado' | 'Cerrado' | 'Perdido';
-  lastContact: string; // This will be the formatted string for display
+  lastContact: string; // Este será el string formateado para mostrar
   transcript: Message[];
 };
 
