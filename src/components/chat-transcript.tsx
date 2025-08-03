@@ -10,17 +10,34 @@ type ChatTranscriptProps = {
   lead: Lead;
 };
 
-const formatTimestamp = (timestamp: string | Timestamp | undefined): string => {
+const formatTimestamp = (timestamp: any): string => {
     if (!timestamp) return '';
     try {
-        const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
-        // Verificar si la fecha es válida
+        let date: Date;
+        // Firestore Timestamps have toDate() method
+        if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+            date = timestamp.toDate();
+        } 
+        // Handle ISO strings or other date string formats
+        else if (typeof timestamp === 'string') {
+            date = new Date(timestamp);
+        }
+        // Handle seconds/nanoseconds object from Firestore if not a Timestamp instance
+        else if (timestamp.seconds !== undefined && timestamp.nanoseconds !== undefined) {
+             date = new Timestamp(timestamp.seconds, timestamp.nanoseconds).toDate();
+        }
+        else {
+            return ''; // Return empty if format is unknown
+        }
+        
+        // Check if the date is valid
         if (isNaN(date.getTime())) {
             return '';
         }
+
         return format(date, "PPpp", { locale: es });
     } catch (error) {
-        console.error("Error formatting timestamp:", error);
+        console.error("Error formatting timestamp:", error, "with value:", timestamp);
         return '';
     }
 };
