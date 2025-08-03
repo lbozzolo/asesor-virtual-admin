@@ -1,7 +1,16 @@
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
+import { firebase } from '@genkit-ai/firebase';
+import { next } from '@genkit-ai/next';
 
 export const ai = genkit({
-  plugins: [googleAI()],
-  model: 'googleai/gemini-2.0-flash',
+  plugins: [
+    firebase(),
+    googleAI({ apiKey: process.env.GEMINI_API_KEY }),
+    next({
+      // The Next.js plugin is required to use Genkit in a Next.js app.
+    }),
+  ],
+  logLevel: 'debug',
+  enableTracingAndMetrics: true,
 });

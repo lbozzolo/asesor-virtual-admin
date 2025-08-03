@@ -1,4 +1,3 @@
-
 "use client";
 
 import './chatbot.css';
@@ -6,25 +5,27 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
 import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { chat } from '@/ai/flows/chat-flow';
 
 import { InvoiceModal } from '@/components/chatbot/invoice-modal';
 import { ChatMessage } from '@/components/chatbot/chat-message';
 import { LeftPanel } from '@/components/chatbot/left-panel';
 import { ChatHeader } from '@/components/chatbot/chat-header';
 import { TypingIndicator } from '@/components/chatbot/typing-indicator';
+import type { Message } from '@/types';
 
 
 // --- Función para obtener los cursos desde Google Sheets ---
 const getCursosFromGoogleSheets = async () => {
-    // Esta función necesita ser implementada de forma segura en un entorno Next.js,
-    // probablemente usando una Server Action o una API route para no exponer la API key.
-    // Por ahora, devolverá una lista vacía.
+    // This function needs to be implemented safely in a Next.js environment,
+    // likely using a Server Action or an API route to not expose the API key.
+    // For now, it will return an empty list.
   return [];
 };
 
 // --- Componente Principal de la Aplicación de Chat ---
 export default function ChatbotPage() {
-  const [messages, setMessages] = useState<Array<{role: 'user' | 'model', text: string}>>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [advisorName, setAdvisorName] = useState('');
@@ -51,7 +52,26 @@ export default function ChatbotPage() {
     const advisorNames = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Camila', 'Sebastián'];
     const randomName = advisorNames[Math.floor(Math.random() * advisorNames.length)];
     setAdvisorName(randomName);
-    setMessages([{ role: 'model', text: `Hola! Mi nombre es ${randomName}, del equipo de asesoramiento de Studyx. Como puedo ayudarte?` }]);
+    const initialMessage: Message = { role: 'model', text: `Hola! Mi nombre es ${randomName}, del equipo de asesoramiento de Studyx. Como puedo ayudarte?` };
+    setMessages([initialMessage]);
+    
+    const newConversationId = `conv-${Date.now()}`;
+    setConversationId(newConversationId);
+    
+    const initializeConversation = async () => {
+      try {
+        await setDoc(doc(db, "conversations", newConversationId), {
+          messages: [initialMessage],
+          advisorName: randomName,
+          createdAt: serverTimestamp(),
+          status: "Iniciado"
+        });
+      } catch (error) {
+        console.error("Error al inicializar la conversación:", error);
+      }
+    };
+    initializeConversation();
+
     inputRef.current?.focus();
   }, []);
 
@@ -61,24 +81,6 @@ export default function ChatbotPage() {
         setCursos(data.flat()); // Convierte las filas en un array plano
     };
     fetchCursos();
-  }, []);
-
-  useEffect(() => {
-    const initializeConversation = async () => {
-      const newConversationId = `conv-${Date.now()}`;
-      setConversationId(newConversationId);
-      try {
-        await setDoc(doc(db, "conversations", newConversationId), {
-          messages: [],
-          advisorName: "",
-          createdAt: serverTimestamp(),
-          status: "Iniciado"
-        });
-      } catch (error) {
-        console.error("Error al inicializar la conversación:", error);
-      }
-    };
-    initializeConversation();
   }, []);
 
   const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
@@ -97,7 +99,7 @@ export default function ChatbotPage() {
       
       setIsLoading(false);
       setMessages(prev => {
-        const newMessages = [...prev, { role: 'model', text: block }];
+        const newMessages: Message[] = [...prev, { role: 'model', text: block }];
         if (conversationId) {
             updateDoc(doc(db, "conversations", conversationId), { 
                 messages: newMessages,
@@ -139,35 +141,18 @@ export default function ChatbotPage() {
     }
   }, [isLoading]);
 
-  const callGeminiAPI = async (prompt: string, systemPrompt: string) => {
+  const callGenkitFlow = async (currentMessages: Message[], userInput: string) => {
     let botResponseText = '';
     try {
-        const isCourseQuery = cursos.some(curso => prompt.toLowerCase().includes(curso.toLowerCase()));
-        const coursesList = cursos.length > 0 ? `Aquí tienes la lista actualizada de cursos disponibles en Studyx: ${cursos.join(', ')}.` : 'Actualmente no hay cursos disponibles.';
-        const chatHistoryForAPI = [...messages.map(m => ({ role: m.role, parts: [{ text: m.text }] })), { role: "user", parts: [{ text: `${isCourseQuery ? coursesList : ''}\n\n${prompt}`.trim() }] }];
-        
-        const payload = { contents: chatHistoryForAPI, systemInstruction: { role: "model", parts: [{ text: systemPrompt }] } };
-        
-        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error("API key not configured.");
-        }
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`;
-        
-        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!response.ok) {
-            if (response.status === 429) { throw new Error("429"); }
-            throw new Error("Network error");
-        }
-        const result = await response.json();
-        if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts.length > 0) {
-            botResponseText = result.candidates[0].content.parts[0].text;
-        } else {
-            botResponseText = "No he podido procesar esa solicitud. ¿Podrías intentarlo de otra manera?";
-        }
+      botResponseText = await chat({
+        history: currentMessages,
+        prompt: userInput,
+        systemPrompt: systemPrompt,
+        availableCourses: cursos,
+      });
     } catch (error) {
-        console.error("Error fetching AI response:", error);
-        setErrorMessage("Error de conexión - Espere y vuelva a intentar");
+      console.error("Error calling Genkit flow:", error);
+      setErrorMessage("Error de conexión - Espere y vuelva a intentar");
     }
     return botResponseText;
   };
@@ -191,10 +176,10 @@ export default function ChatbotPage() {
     const userInput = input;
     if (!userInput.trim()) return;
 
-    const userMessage = { role: 'user' as const, text: userInput };
-    const newMessages = [...messages, userMessage];
+    const userMessage: Message = { role: 'user', text: userInput };
+    const newMessages: Message[] = [...messages, userMessage];
     setMessages(newMessages);
-    updateConversationInFirestore({ messages: newMessages, advisorName, updatedAt: serverTimestamp() });
+    updateConversationInFirestore({ messages: newMessages, updatedAt: serverTimestamp() });
     
     setInput('');
     if(inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -257,7 +242,7 @@ export default function ChatbotPage() {
         return;
     }
 
-    const botResponseText = await callGeminiAPI(userInput, systemPrompt);
+    const botResponseText = await callGenkitFlow(messages, userInput);
     const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
 
     if (trimmedResponse.includes('[INICIAR_REGISTRO]')) {
@@ -268,7 +253,6 @@ export default function ChatbotPage() {
         await sendBotMessage(trimmedResponse.split('[---]'));
     }
   };
-
 
   return (
     <div className="w-screen h-screen bg-gray-50 flex flex-col font-sans text-base">
