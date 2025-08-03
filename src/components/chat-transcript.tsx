@@ -10,22 +10,31 @@ type ChatTranscriptProps = {
   lead: Lead;
 };
 
-const formatTimestamp = (timestamp: string | Timestamp): string => {
+const formatTimestamp = (timestamp: string | Timestamp | undefined): string => {
     if (!timestamp) return '';
-    const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
-    return format(date, "PPpp", { locale: es });
+    try {
+        const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
+        // Verificar si la fecha es válida
+        if (isNaN(date.getTime())) {
+            return '';
+        }
+        return format(date, "PPpp", { locale: es });
+    } catch (error) {
+        console.error("Error formatting timestamp:", error);
+        return '';
+    }
 };
 
 
 export function ChatTranscript({ lead }: ChatTranscriptProps) {
   const getInitials = (name: string) => {
-    if (!name) return '??';
+    if (!name || typeof name !== 'string') return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   return (
     <div className="space-y-6">
-      {lead.transcript.map((message: Message, index: number) => (
+      {(lead.transcript || []).map((message: Message, index: number) => (
         <div
           key={index}
           className={cn(
@@ -47,7 +56,7 @@ export function ChatTranscript({ lead }: ChatTranscriptProps) {
                 : "bg-primary text-primary-foreground"
             )}
           >
-            <p className="mb-1">{message.text}</p>
+            <p className="mb-1">{message.text || "Mensaje no disponible"}</p>
             <p className={cn("text-xs", message.sender === 'user' ? 'text-muted-foreground' : 'text-primary-foreground/70')}>
                 {formatTimestamp(message.timestamp)}
             </p>
