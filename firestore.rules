@@ -2,34 +2,27 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check user roles from custom claims
-    function hasRole(role) {
-      return request.auth.token.role == role;
+
+    // Helper function to check if a user has a specific role
+    function isRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
     
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    // Helper function to check if a user has one of the specified roles
+    function hasOneOfRoles(roles) {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return userRole in roles;
     }
-    
-    // Users collection rules
+
     match /users/{userId} {
-      // Admins and superadmins can read all user data
-      allow read: if hasRole('admin') || hasRole('superadmin');
-      
-      // Superadmins can create/update any user.
-      // Admins can create/update 'operador' roles.
-      // Users can't create or update their own roles directly.
-      allow create, update: if hasRole('superadmin') || 
-                               (hasRole('admin') && (request.resource.data.role == 'operador' || resource.data.role == 'operador'));
-
-      // Only superadmins can delete users.
-      allow delete: if hasRole('superadmin');
+      // Allow read and write only for admins and superadmins
+      allow read, write: if request.auth != null && hasOneOfRoles(['admin', 'superadmin']);
     }
 
-    // Default deny all other collections for now
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // You should add rules for your other collections here.
+    // For example, if you have a 'conversations' collection:
+    // match /conversations/{conversationId} {
+    //   allow read, write: if request.auth != null; // Example: Allow any authenticated user
+    // }
   }
 }
