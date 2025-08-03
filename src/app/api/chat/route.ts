@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import type { Message } from '@/types';
 
-// IMPORTANT: Set the GEMINI_API_KEY environment variable in your deployment environment.
-// This is how the server will authenticate with the Google AI API.
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Ensure the GEMINI_API_KEY is available
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("Missing GEMINI_API_KEY environment variable");
+}
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const model = genAI.getGenerativeModel({
   model: 'gemini-1.5-flash',
@@ -64,20 +67,24 @@ export async function POST(req: NextRequest) {
         safetySettings,
     });
     
-    if (result.response) {
-      const text = result.response.text();
+    // Using optional chaining and nullish coalescing for safer access
+    const response = result?.response;
+    const text = response?.text();
+
+    if (text) {
       return NextResponse.json({ text });
     } else {
       console.warn("Gemini API call finished but no response was returned.", result);
       // Check if the response was blocked
-      if (result.response.promptFeedback?.blockReason) {
-         return NextResponse.json({ text: `Lo siento, no puedo responder a eso. Razón: ${result.response.promptFeedback.blockReason}` });
+      if (response?.promptFeedback?.blockReason) {
+         return NextResponse.json({ text: `Lo siento, no puedo responder a eso. Razón: ${response.promptFeedback.blockReason}` }, { status: 400 });
       }
-      return NextResponse.json({ text: 'Lo siento, no he podido generar una respuesta. Por favor, inténtalo de nuevo.' });
+      return NextResponse.json({ error: 'Lo siento, no he podido generar una respuesta. Por favor, inténtalo de nuevo.' }, { status: 500 });
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in chat API:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    return NextResponse.json({ error: 'Internal Server Error', details: errorMessage }, { status: 500 });
   }
 }
