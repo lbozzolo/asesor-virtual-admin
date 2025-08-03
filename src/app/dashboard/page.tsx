@@ -24,9 +24,15 @@ export default function DashboardPage() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const leadsData = snapshot.docs.map(doc => {
         const data = doc.data();
-        const lastContactDate = data.lastContact instanceof Timestamp 
-          ? data.lastContact.toDate() 
-          : new Date();
+        
+        let lastContactDate: Date;
+        if (data.lastContact instanceof Timestamp) {
+            lastContactDate = data.lastContact.toDate();
+        } else if (typeof data.lastContact === 'string') {
+            lastContactDate = new Date(data.lastContact);
+        } else {
+            lastContactDate = new Date(); // Fallback to current date
+        }
           
         return {
           id: doc.id,
@@ -35,13 +41,15 @@ export default function DashboardPage() {
           advisorName: data.advisorName || "Asesor no asignado",
           advisorAvatar: data.advisorAvatar || `https://placehold.co/100x100.png`,
           status: data.status || "Potencial",
-          // Format the lastContact timestamp to a readable string
           lastContact: formatDistanceToNow(lastContactDate, { addSuffix: true, locale: es }),
           transcript: data.transcript || [],
         } as Lead;
       });
       setLeads(leadsData);
       setLoading(false);
+    }, (error) => {
+        console.error("Error al obtener datos de Firestore:", error);
+        setLoading(false);
     });
 
     return () => unsubscribe();
