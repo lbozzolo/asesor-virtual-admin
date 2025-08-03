@@ -3,11 +3,12 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 import type { Message } from '@/types';
 
 // Ensure the GEMINI_API_KEY is available
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("Missing GEMINI_API_KEY environment variable");
+if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
+  console.error("Missing or placeholder GEMINI_API_KEY environment variable");
+  // Don't throw an error during build, but handle it in requests.
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 const model = genAI.getGenerativeModel({
   model: 'gemini-1.5-flash',
@@ -32,59 +33,73 @@ const safetySettings = [
     },
 ];
 
-function buildFullPrompt(systemPrompt: string, history: Message[], prompt: string) {
-  let fullPrompt = `${systemPrompt}\n\n`;
-  history.forEach(message => {
-    if (message.role === 'user') {
-      fullPrompt += `User: ${message.text}\n`;
-    } else {
-      fullPrompt += `AI: ${message.text}\n`;
-    }
-  });
-  fullPrompt += `User: ${prompt}\nAI:`;
-  return fullPrompt;
-}
-
+// Helper to format the history for the Gemini API
+const buildHistory = (history: Message[]) => {
+  return history.map(msg => ({
+    role: msg.role === 'model' ? 'model' : 'user',
+    parts: [{ text: msg.text }],
+  }));
+};
 
 export async function POST(req: NextRequest) {
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
+      return NextResponse.json({ error: 'La clave de API de Gemini no está configurada en el servidor. Por favor, añádela al archivo .env.' }, { status: 500 });
+  }
+
   try {
     const { history, prompt, systemPrompt } = await req.json();
 
-    if (!prompt || !systemPrompt) {
-      return NextResponse.json({ error: 'Missing prompt or systemPrompt in the request body' }, { status: 400 });
+    if (!prompt) {
+      return NextResponse.json({ error: 'Falta el "prompt" en la solicitud' }, { status: 400 });
     }
 
-    const fullPrompt = buildFullPrompt(systemPrompt, history || [], prompt);
-
-    const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 1,
-          topP: 1,
-          maxOutputTokens: 2048,
-        },
-        safetySettings,
+    const chat = model.startChat({
+      history: buildHistory(history || []),
+      generationConfig: {
+        temperature: 0.7,
+        topK: 1,
+        topP: 1,
+        maxOutputTokens: 2048,
+      },
+      safetySettings,
+      // The system instruction can be passed here if needed, though combining it with the user prompt is also effective.
+      // systemInstruction: systemPrompt, 
     });
-    
-    // Using optional chaining and nullish coalescing for safer access
-    const response = result?.response;
-    const text = response?.text();
+
+    // We combine the system prompt with the user's first message for context.
+    const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+    const result = await chat.sendMessage(fullPrompt);
+
+    const response = result.response;
+    const text = response.text();
 
     if (text) {
       return NextResponse.json({ text });
     } else {
-      console.warn("Gemini API call finished but no response was returned.", result);
-      // Check if the response was blocked
+      console.warn("La API de Gemini finalizó la llamada pero no devolvió respuesta.", result);
       if (response?.promptFeedback?.blockReason) {
-         return NextResponse.json({ text: `Lo siento, no puedo responder a eso. Razón: ${response.promptFeedback.blockReason}` }, { status: 400 });
+         return NextResponse.json({ text: `Lo siento, no puedo responder a eso. Razón: ${response.promptFeedback.blockReason}` });
       }
-      return NextResponse.json({ error: 'Lo siento, no he podido generar una respuesta. Por favor, inténtalo de nuevo.' }, { status: 500 });
+      return NextResponse.json({ error: 'Lo siento, no he podido generar una respuesta. La API no devolvió contenido.' }, { status: 500 });
     }
 
   } catch (error: unknown) {
-    console.error('Error in chat API:', error);
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-    return NextResponse.json({ error: 'Internal Server Error', details: errorMessage }, { status: 500 });
+    console.error('Error en la API de chat:', error);
+    
+    let errorMessage = "Ocurrió un error interno en el servidor.";
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+        // Check for specific error messages from Google's API client
+        if (error.message.includes('API key not valid')) {
+            errorMessage = "La clave de API de Gemini no es válida. Por favor, verifica que la hayas copiado correctamente en el archivo .env.";
+            statusCode = 401; // Unauthorized
+        } else if (error.message.includes('permission denied')) {
+            errorMessage = "Permiso denegado. Esto puede deberse a que tu clave de API tiene restricciones de URL o IP. Intenta usar una clave sin restricciones.";
+            statusCode = 403; // Forbidden
+        }
+    }
+    
+    return NextResponse.json({ error: 'Error al contactar la API de Gemini.', details: errorMessage }, { status: statusCode });
   }
 }
