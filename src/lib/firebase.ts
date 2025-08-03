@@ -3,13 +3,13 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDWBbg_g1GvRa6V5CXqFszpNaWVrVVmMsE",
-  authDomain: "advisor-insights-ihqeg.firebaseapp.com",
-  projectId: "advisor-insights-ihqeg",
-  storageBucket: "advisor-insights-ihqeg.firebasestorage.app",
-  messagingSenderId: "682568338474",
-  appId: "1:682568338474:web:66cb003688c68d55fcc753",
-  measurementId: ""
+  apiKey: "AIzaSyDhZkMugH_6BM-5XSfO0mbgdFlsaQe2GuI",
+  authDomain: "asesor-comercial-studyx.firebaseapp.com",
+  projectId: "asesor-comercial-studyx",
+  storageBucket: "asesor-comercial-studyx.firebasestorage.app",
+  messagingSenderId: "334651698448",
+  appId: "1:334651698448:web:2e8c74bd79ccfa61440995",
+  measurementId: "G-48HV4WN2P4"
 };
 
 // Initialize Firebase
