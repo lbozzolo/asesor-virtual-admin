@@ -13,14 +13,17 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Eye } from "lucide-react";
 import type { Lead } from "@/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type LeadsTableProps = {
   leads: Lead[];
   onViewLead: (lead: Lead) => void;
+  loading: boolean;
 };
 
-export function LeadsTable({ leads, onViewLead }: LeadsTableProps) {
+export function LeadsTable({ leads, onViewLead, loading }: LeadsTableProps) {
   const getInitials = (name: string) => {
+    if (!name) return '??';
     return name.split(' ').map(n => n[0]).join('');
   };
 
@@ -37,6 +40,40 @@ export function LeadsTable({ leads, onViewLead }: LeadsTableProps) {
         return "outline";
     }
   };
+
+  if (loading) {
+    return (
+        <div className="w-full overflow-x-auto">
+        <Table>
+            <TableHeader>
+            <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead className="hidden md:table-cell">Asesor</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="hidden md:table-cell">Último Contacto</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+            </TableHeader>
+            <TableBody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={index}>
+                        <TableCell>
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-9 w-9 rounded-full" />
+                                <Skeleton className="h-5 w-32" />
+                            </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-28" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+        </div>
+    )
+  }
 
   return (
     <div className="w-full overflow-x-auto">

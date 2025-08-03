@@ -1,9 +1,10 @@
 import type { User as FirebaseUser } from 'firebase/auth';
+import type { Timestamp } from 'firebase/firestore';
 
 export type Message = {
   sender: 'user' | 'advisor';
   text: string;
-  timestamp: string;
+  timestamp: string | Timestamp;
 };
 
 export type Lead = {
@@ -13,7 +14,7 @@ export type Lead = {
   advisorName: string;
   advisorAvatar: string;
   status: 'Potencial' | 'Cualificado' | 'Cerrado' | 'Perdido';
-  lastContact: string;
+  lastContact: string; // This will be the formatted string for display
   transcript: Message[];
 };
 
