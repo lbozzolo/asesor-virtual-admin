@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check user roles from custom claims
+    function hasRole(role) {
+      return request.auth.token.role == role;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Users collection rules
+    match /users/{userId} {
+      // Admins and superadmins can read all user data
+      allow read: if hasRole('admin') || hasRole('superadmin');
+      
+      // Superadmins can create/update any user.
+      // Admins can create/update 'operador' roles.
+      // Users can't create or update their own roles directly.
+      allow create, update: if hasRole('superadmin') || 
+                               (hasRole('admin') && (request.resource.data.role == 'operador' || resource.data.role == 'operador'));
+
+      // Only superadmins can delete users.
+      allow delete: if hasRole('superadmin');
+    }
+
+    // Default deny all other collections for now
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,3 +1,5 @@
+import type { User as FirebaseUser } from 'firebase/auth';
+
 export type Message = {
   sender: 'user' | 'advisor';
   text: string;
@@ -14,3 +16,19 @@ export type Lead = {
   lastContact: string;
   transcript: Message[];
 };
+
+export type UserRole = "superadmin" | "admin" | "operador";
+
+export interface AppUser {
+  uid: string;
+  email: string | null;
+  role: UserRole;
+  suspended: boolean;
+}
+
+export interface AuthContextType {
+  user: FirebaseUser | null;
+  appUser: AppUser | null;
+  loading: boolean;
+  logout: () => Promise<void>;
+}
