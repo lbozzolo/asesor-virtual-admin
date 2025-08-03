@@ -30,22 +30,22 @@ export function MetricsDashboard() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <MetricCard
-        title="Total Conversations"
+        title="Conversaciones Totales"
         value="1,234"
         icon={MessageSquare}
-        change="+20.1% from last month"
+        change="+20.1% del último mes"
       />
       <MetricCard
-        title="Sales"
+        title="Ventas"
         value="$54,231.89"
         icon={DollarSign}
-        change="+12.5% from last month"
+        change="+12.5% del último mes"
       />
       <MetricCard
-        title="Conversion Rate"
+        title="Tasa de Conversión"
         value="4.5%"
         icon={Percent}
-        change="+1.2% from last month"
+        change="+1.2% del último mes"
       />
     </div>
   );

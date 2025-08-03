@@ -10,7 +10,7 @@ export type Lead = {
   customerAvatar: string;
   advisorName: string;
   advisorAvatar: string;
-  status: 'Lead' | 'Qualified' | 'Closed' | 'Lost';
+  status: 'Potencial' | 'Cualificado' | 'Cerrado' | 'Perdido';
   lastContact: string;
   transcript: Message[];
 };

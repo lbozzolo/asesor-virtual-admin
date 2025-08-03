@@ -26,13 +26,13 @@ export function LeadsTable({ leads, onViewLead }: LeadsTableProps) {
 
   const getStatusVariant = (status: Lead['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case "Closed":
+      case "Cerrado":
         return "default";
-      case "Qualified":
+      case "Cualificado":
         return "secondary";
-      case "Lost":
+      case "Perdido":
         return "destructive";
-      case "Lead":
+      case "Potencial":
       default:
         return "outline";
     }
@@ -43,11 +43,11 @@ export function LeadsTable({ leads, onViewLead }: LeadsTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Customer</TableHead>
-            <TableHead className="hidden md:table-cell">Advisor</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="hidden md:table-cell">Last Contact</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>Cliente</TableHead>
+            <TableHead className="hidden md:table-cell">Asesor</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead className="hidden md:table-cell">Último Contacto</TableHead>
+            <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -72,7 +72,7 @@ export function LeadsTable({ leads, onViewLead }: LeadsTableProps) {
               <TableCell className="text-right">
                 <Button variant="ghost" size="icon" onClick={() => onViewLead(lead)}>
                   <Eye className="h-4 w-4" />
-                  <span className="sr-only">View Conversation</span>
+                  <span className="sr-only">Ver Conversación</span>
                 </Button>
               </TableCell>
             </TableRow>

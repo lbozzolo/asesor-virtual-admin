@@ -20,17 +20,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const mockLeads: Lead[] = [
   {
     id: "1",
-    customerName: "Alice Johnson",
+    customerName: "Alicia Johnson",
     customerAvatar: "https://placehold.co/100x100.png",
     advisorName: "David Chen",
     advisorAvatar: "https://placehold.co/100x100.png",
-    status: "Qualified",
-    lastContact: "2 days ago",
+    status: "Cualificado",
+    lastContact: "Hace 2 días",
     transcript: [
-      { sender: "user", text: "Hi, I'm interested in the new XYZ phone. Can you tell me more about its features?", timestamp: "2024-07-28T10:00:00Z" },
-      { sender: "advisor", text: "Hello Alice! Of course. The XYZ phone has a stunning 120Hz display, a pro-grade camera system, and all-day battery life. What's most important to you in a phone?", timestamp: "2024-07-28T10:01:00Z" },
-      { sender: "user", text: "The camera is a big deal for me. How does it compare to other flagship models?", timestamp: "2024-07-28T10:02:00Z" },
-      { sender: "advisor", text: "Great question. It excels in low-light photography and has a unique portrait mode that has been getting rave reviews. It's considered one of the top 3 on the market right now.", timestamp: "2024-07-28T10:03:00Z" },
+      { sender: "user", text: "Hola, estoy interesada en el nuevo teléfono XYZ. ¿Puedes contarme más sobre sus características?", timestamp: "2024-07-28T10:00:00Z" },
+      { sender: "advisor", text: "¡Hola Alicia! Por supuesto. El teléfono XYZ tiene una impresionante pantalla de 120Hz, un sistema de cámara de nivel profesional y una batería que dura todo el día. ¿Qué es lo más importante para ti en un teléfono?", timestamp: "2024-07-28T10:01:00Z" },
+      { sender: "user", text: "La cámara es muy importante para mí. ¿Cómo se compara con otros modelos de gama alta?", timestamp: "2024-07-28T10:02:00Z" },
+      { sender: "advisor", text: "Excelente pregunta. Sobresale en fotografía con poca luz y tiene un modo de retrato único que ha recibido excelentes críticas. Se considera uno de los 3 mejores del mercado en este momento.", timestamp: "2024-07-28T10:03:00Z" },
     ],
   },
   {
@@ -39,14 +39,14 @@ const mockLeads: Lead[] = [
     customerAvatar: "https://placehold.co/100x100.png",
     advisorName: "Sarah Miller",
     advisorAvatar: "https://placehold.co/100x100.png",
-    status: "Closed",
-    lastContact: "1 week ago",
+    status: "Cerrado",
+    lastContact: "Hace 1 semana",
     transcript: [
-      { sender: "user", text: "I'm looking for a new laptop for video editing.", timestamp: "2024-07-21T14:30:00Z" },
-      { sender: "advisor", text: "Hi Bob, we have some great options. The ProBook X1 is a powerhouse with a dedicated GPU that's perfect for video work. It's our top recommendation.", timestamp: "2024-07-21T14:31:00Z" },
-      { sender: "user", text: "Sounds good. What's the price and warranty?", timestamp: "2024-07-21T14:32:00Z" },
-      { sender: "advisor", text: "It starts at $1999 and comes with a 2-year premium warranty. We also have a 10% discount this week.", timestamp: "2024-07-21T14:33:00Z" },
-      { sender: "user", text: "Awesome, I'll take it!", timestamp: "2024-07-21T14:35:00Z" },
+      { sender: "user", text: "Estoy buscando una nueva laptop para edición de video.", timestamp: "2024-07-21T14:30:00Z" },
+      { sender: "advisor", text: "Hola Bob, tenemos algunas opciones geniales. La ProBook X1 es una potencia con una GPU dedicada que es perfecta para el trabajo de video. Es nuestra principal recomendación.", timestamp: "2024-07-21T14:31:00Z" },
+      { sender: "user", text: "¿Cuál es el precio y la garantía?", timestamp: "2024-07-21T14:32:00Z" },
+      { sender: "advisor", text: "Comienza en $1999 y viene con una garantía premium de 2 años. También tenemos un 10% de descuento esta semana.", timestamp: "2024-07-21T14:33:00Z" },
+      { sender: "user", text: "¡Genial, me la llevo!", timestamp: "2024-07-21T14:35:00Z" },
     ],
   },
   {
@@ -55,11 +55,11 @@ const mockLeads: Lead[] = [
     customerAvatar: "https://placehold.co/100x100.png",
     advisorName: "David Chen",
     advisorAvatar: "https://placehold.co/100x100.png",
-    status: "Lead",
-    lastContact: "5 hours ago",
+    status: "Potencial",
+    lastContact: "Hace 5 horas",
     transcript: [
-      { sender: "user", text: "Do you sell smart watches?", timestamp: "2024-07-28T18:00:00Z" },
-      { sender: "advisor", text: "Yes, we have a wide range of smart watches. Are you looking for something for fitness, style, or a bit of both?", timestamp: "2024-07-28T18:01:00Z" },
+      { sender: "user", text: "¿Venden relojes inteligentes?", timestamp: "2024-07-28T18:00:00Z" },
+      { sender: "advisor", text: "Sí, tenemos una amplia gama de relojes inteligentes. ¿Buscas algo para fitness, estilo o un poco de ambos?", timestamp: "2024-07-28T18:01:00Z" },
     ],
   },
   {
@@ -68,12 +68,12 @@ const mockLeads: Lead[] = [
     customerAvatar: "https://placehold.co/100x100.png",
     advisorName: "Sarah Miller",
     advisorAvatar: "https://placehold.co/100x100.png",
-    status: "Lost",
-    lastContact: "3 weeks ago",
+    status: "Perdido",
+    lastContact: "Hace 3 semanas",
     transcript: [
-      { sender: "user", text: "I need a durable phone case for my phone.", timestamp: "2024-07-05T11:00:00Z" },
-      { sender: "advisor", text: "We have the Rhino series which is extremely tough. Would you like to see the options?", timestamp: "2024-07-05T11:01:00Z" },
-      { sender: "user", text: "It's a bit more expensive than I thought. I'll look elsewhere, thanks.", timestamp: "2024-07-05T11:05:00Z" },
+      { sender: "user", text: "Necesito una funda de teléfono duradera para mi teléfono.", timestamp: "2024-07-05T11:00:00Z" },
+      { sender: "advisor", text: "Tenemos la serie Rhino que es extremadamente resistente. ¿Te gustaría ver las opciones?", timestamp: "2024-07-05T11:01:00Z" },
+      { sender: "user", text: "Es un poco más caro de lo que pensaba. Buscaré en otro lado, gracias.", timestamp: "2024-07-05T11:05:00Z" },
     ],
   },
 ];
@@ -93,11 +93,11 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
-        <h1 className="text-xl font-semibold tracking-tight">Advisor Insights</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Información del Asesor</h1>
         <div className="ml-auto">
           <Button variant="ghost" size="icon" className="rounded-full">
             <User className="h-5 w-5" />
-            <span className="sr-only">User Menu</span>
+            <span className="sr-only">Menú de Usuario</span>
           </Button>
         </div>
       </header>
@@ -105,7 +105,7 @@ export default function DashboardPage() {
         <MetricsDashboard />
         <Card>
           <CardHeader>
-            <CardTitle>Recent Leads</CardTitle>
+            <CardTitle>Clientes Potenciales Recientes</CardTitle>
           </CardHeader>
           <CardContent>
             <LeadsTable leads={mockLeads} onViewLead={handleViewLead} />
@@ -117,9 +117,9 @@ export default function DashboardPage() {
           {selectedLead && (
             <>
               <SheetHeader className="px-6 pt-6">
-                <SheetTitle>Conversation with {selectedLead.customerName}</SheetTitle>
+                <SheetTitle>Conversación con {selectedLead.customerName}</SheetTitle>
                 <SheetDescription>
-                  Advisor: {selectedLead.advisorName} | Status: {selectedLead.status}
+                  Asesor: {selectedLead.advisorName} | Estado: {selectedLead.status}
                 </SheetDescription>
               </SheetHeader>
               <ScrollArea className="flex-1 px-6 py-4">
