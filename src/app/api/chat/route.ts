@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { geminiModel } from '@/lib/firebase';
 import type { Message } from '@/types';
-import { GEMINI_API_KEY } from '@/lib/firebase';
 
 // Helper function to format the history for the Gemini API
 const buildHistory = (history: Message[]) => {
@@ -12,13 +11,6 @@ const buildHistory = (history: Message[]) => {
 };
 
 export async function POST(req: NextRequest) {
-  // 1. Check if the API key is present and valid from the firebase config
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
-      const errorMsg = 'La clave de API de Gemini no está configurada en el servidor. Por favor, añádela al archivo src/lib/firebase.ts.';
-      console.error(`Error en /api/chat: ${errorMsg}`);
-      return NextResponse.json({ error: errorMsg }, { status: 500 });
-  }
-
   try {
     const { history, prompt, systemPrompt } = await req.json();
 
@@ -26,36 +18,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta el "prompt" en la solicitud' }, { status: 400 });
     }
 
-    // 2. Initialize the API client
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash-latest',
-      systemInstruction: systemPrompt,
-    });
-    
-    // 3. Start the chat
-    const chat = model.startChat({
+    // Use the pre-initialized model from firebase.ts
+    // The system prompt is now part of the model initialization
+    const chat = geminiModel.startChat({
       history: buildHistory(history || []),
+      // Note: System prompt is often set at the model level, 
+      // but if you need to override it per chat, you could adjust gemini.ts 
+      // to create a new model instance here with the new systemPrompt.
+      // For now, we assume a global system prompt.
     });
 
-    // 4. Send the message
     const result = await chat.sendMessage(prompt);
     const response = result.response;
     const text = response.text();
 
     return NextResponse.json({ text });
 
-  } catch (error: unknown) {
-    // 5. Catch and log any errors, returning a more specific message
+  } catch (error: any) {
     console.error('Error detallado en la API de chat:', error);
     
-    let errorMessage = "Ocurrió un error desconocido en el servidor al contactar con Gemini.";
-    
     // Return the actual error message from the Google API if available
-    if (error instanceof Error) {
-        errorMessage = error.message;
-    }
+    const errorMessage = error.response?.data?.error?.message || error.message || "Ocurrió un error desconocido en el servidor al contactar con Gemini.";
     
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+        { 
+            error: "Error al comunicarse con la API de Gemini.",
+            details: errorMessage 
+        }, 
+        { status: 500 }
+    );
   }
 }
