@@ -1,17 +1,18 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import type { Message } from '@/types';
 
-// Ensure the GEMINI_API_KEY is available
+// Comprobar si la clave de API está configurada
 if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
-  console.error("Missing or placeholder GEMINI_API_KEY environment variable");
-  // Don't throw an error during build, but handle it in requests.
+  console.error("Falta la variable de entorno GEMINI_API_KEY o es un valor de ejemplo.");
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+// Usar el modelo optimizado para chat
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash',
+  model: 'gemini-1.5-flash-latest',
 });
 
 const safetySettings = [
@@ -33,7 +34,7 @@ const safetySettings = [
     },
 ];
 
-// Helper to format the history for the Gemini API
+// Ayudante para formatear el historial para la API de Gemini
 const buildHistory = (history: Message[]) => {
   return history.map(msg => ({
     role: msg.role === 'model' ? 'model' : 'user',
@@ -42,6 +43,7 @@ const buildHistory = (history: Message[]) => {
 };
 
 export async function POST(req: NextRequest) {
+  // Comprobación inicial de la clave de API
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
       return NextResponse.json({ error: 'La clave de API de Gemini no está configurada en el servidor. Por favor, añádela al archivo .env.' }, { status: 500 });
   }
@@ -62,44 +64,26 @@ export async function POST(req: NextRequest) {
         maxOutputTokens: 2048,
       },
       safetySettings,
-      // The system instruction can be passed here if needed, though combining it with the user prompt is also effective.
-      // systemInstruction: systemPrompt, 
+      systemInstruction: systemPrompt, 
     });
 
-    // We combine the system prompt with the user's first message for context.
-    const fullPrompt = `${systemPrompt}\n\n${prompt}`;
-    const result = await chat.sendMessage(fullPrompt);
-
+    const result = await chat.sendMessage(prompt);
     const response = result.response;
     const text = response.text();
 
-    if (text) {
-      return NextResponse.json({ text });
-    } else {
-      console.warn("La API de Gemini finalizó la llamada pero no devolvió respuesta.", result);
-      if (response?.promptFeedback?.blockReason) {
-         return NextResponse.json({ text: `Lo siento, no puedo responder a eso. Razón: ${response.promptFeedback.blockReason}` });
-      }
-      return NextResponse.json({ error: 'Lo siento, no he podido generar una respuesta. La API no devolvió contenido.' }, { status: 500 });
-    }
+    return NextResponse.json({ text });
 
   } catch (error: unknown) {
-    console.error('Error en la API de chat:', error);
+    console.error('Error detallado en la API de chat:', error);
     
-    let errorMessage = "Ocurrió un error interno en el servidor.";
+    let errorMessage = "Ocurrió un error interno en el servidor al contactar con Gemini.";
     let statusCode = 500;
 
     if (error instanceof Error) {
-        // Check for specific error messages from Google's API client
-        if (error.message.includes('API key not valid')) {
-            errorMessage = "La clave de API de Gemini no es válida. Por favor, verifica que la hayas copiado correctamente en el archivo .env.";
-            statusCode = 401; // Unauthorized
-        } else if (error.message.includes('permission denied')) {
-            errorMessage = "Permiso denegado. Esto puede deberse a que tu clave de API tiene restricciones de URL o IP. Intenta usar una clave sin restricciones.";
-            statusCode = 403; // Forbidden
-        }
+        // Devolver el mensaje de error real de la API de Google si está disponible
+        errorMessage = error.message;
     }
     
-    return NextResponse.json({ error: 'Error al contactar la API de Gemini.', details: errorMessage }, { status: statusCode });
+    return NextResponse.json({ error: errorMessage }, { status: statusCode });
   }
 }
