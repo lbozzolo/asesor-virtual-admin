@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
-  apiKey: "AIzaSyDhZkMugH_6BM-5XSfO0mbgdFlsaQe2GuI",
+  apiKey: "AIzaSyA67xUpjVj_LSzSy0PcW6c9lWR1XsyyxUI",
   authDomain: "asesor-comercial-studyx.firebaseapp.com",
   projectId: "asesor-comercial-studyx",
   storageBucket: "asesor-comercial-studyx.firebasestorage.app",
