@@ -2,6 +2,9 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+// IMPORTANT: ADD YOUR GEMINI API KEY HERE
+export const GEMINI_API_KEY = "YOUR_API_KEY_HERE";
+
 const firebaseConfig = {
   apiKey: "AIzaSyDhZkMugH_6BM-5XSfO0mbgdFlsaQe2GuI",
   authDomain: "asesor-comercial-studyx.firebaseapp.com",

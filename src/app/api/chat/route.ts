@@ -1,7 +1,7 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Message } from '@/types';
+import { GEMINI_API_KEY } from '@/lib/firebase';
 
 // Helper function to format the history for the Gemini API
 const buildHistory = (history: Message[]) => {
@@ -12,10 +12,9 @@ const buildHistory = (history: Message[]) => {
 };
 
 export async function POST(req: NextRequest) {
-  // 1. Check if the API key is present and valid
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "YOUR_API_KEY_HERE") {
-      const errorMsg = 'La clave de API de Gemini no está configurada en el servidor. Por favor, añádela al archivo .env.';
+  // 1. Check if the API key is present and valid from the firebase config
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
+      const errorMsg = 'La clave de API de Gemini no está configurada en el servidor. Por favor, añádela al archivo src/lib/firebase.ts.';
       console.error(`Error en /api/chat: ${errorMsg}`);
       return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Initialize the API client
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash-latest',
       systemInstruction: systemPrompt,
@@ -37,7 +36,6 @@ export async function POST(req: NextRequest) {
     // 3. Start the chat
     const chat = model.startChat({
       history: buildHistory(history || []),
-      // Temporarily removing safety and generation configs to simplify
     });
 
     // 4. Send the message
