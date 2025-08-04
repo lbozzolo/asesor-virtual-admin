@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Message } from '@/types';
 
-// Ayudante para formatear el historial para la API de Gemini
+// Helper function to format the history for the Gemini API
 const buildHistory = (history: Message[]) => {
   return history.map(msg => ({
     role: msg.role === 'model' ? 'model' : 'user',
@@ -12,7 +12,7 @@ const buildHistory = (history: Message[]) => {
 };
 
 export async function POST(req: NextRequest) {
-  // 1. Verificar si la clave de API está presente
+  // 1. Check if the API key is present and valid
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "YOUR_API_KEY_HERE") {
       const errorMsg = 'La clave de API de Gemini no está configurada en el servidor. Por favor, añádela al archivo .env.';
@@ -27,20 +27,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta el "prompt" en la solicitud' }, { status: 400 });
     }
 
-    // 2. Inicializar el cliente de la API
+    // 2. Initialize the API client
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash-latest',
       systemInstruction: systemPrompt,
     });
     
-    // 3. Iniciar el chat
+    // 3. Start the chat
     const chat = model.startChat({
       history: buildHistory(history || []),
-      // Se eliminan temporalmente las configuraciones de seguridad y generación para simplificar
+      // Temporarily removing safety and generation configs to simplify
     });
 
-    // 4. Enviar el mensaje
+    // 4. Send the message
     const result = await chat.sendMessage(prompt);
     const response = result.response;
     const text = response.text();
@@ -48,12 +48,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text });
 
   } catch (error: unknown) {
-    // 5. Capturar y registrar cualquier error
+    // 5. Catch and log any errors, returning a more specific message
     console.error('Error detallado en la API de chat:', error);
     
     let errorMessage = "Ocurrió un error desconocido en el servidor al contactar con Gemini.";
     
-    // Devolver el mensaje de error real de la API de Google si está disponible
+    // Return the actual error message from the Google API if available
     if (error instanceof Error) {
         errorMessage = error.message;
     }
