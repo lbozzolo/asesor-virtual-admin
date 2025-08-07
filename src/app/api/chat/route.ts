@@ -1,5 +1,6 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import { geminiModel } from '@/lib/firebase';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Message } from '@/types';
 
 // Helper function to format the history for the Gemini API
@@ -16,21 +17,32 @@ const buildHistory = (history: Message[]) => {
 
 export async function POST(req: NextRequest) {
   try {
-    const { history, prompt } = await req.json();
+    const { history, prompt, systemPrompt: clientSystemPrompt } = await req.json();
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+    if (!GEMINI_API_KEY) {
+        return NextResponse.json({ error: 'La clave de API de Gemini no está configurada en el servidor.' }, { status: 500 });
+    }
 
     if (!prompt) {
       return NextResponse.json({ error: 'Falta el "prompt" en la solicitud' }, { status: 400 });
     }
     
-    // Start a chat session with the model, including the cleaned history
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+    // Combine a base instruction with any specific prompt from the client
+    const finalSystemPrompt = `Eres un asesor comercial experto para Studyx. Tu objetivo es ayudar a los usuarios, responder sus preguntas y guiarlos para que se inscriban. Responde siempre en español, de forma amable y profesional. ${clientSystemPrompt || ''}`.trim();
+
+    const geminiModel = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash-latest',
+      systemInstruction: finalSystemPrompt,
+    });
+    
     const chat = geminiModel.startChat({
       history: buildHistory(history || []),
     });
 
-    // Send the user's prompt to the model
     const result = await chat.sendMessage(prompt);
-    
-    // Get the model's response
     const response = result.response;
     const text = response.text();
 
@@ -39,7 +51,6 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error detallado en la API de chat:', error);
     
-    // Return a more detailed error message
     const errorMessage = error.response?.data?.error?.message || error.message || "Ocurrió un error desconocido en el servidor al contactar con Gemini.";
     
     return NextResponse.json(
