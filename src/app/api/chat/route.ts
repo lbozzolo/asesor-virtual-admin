@@ -17,18 +17,17 @@ export async function POST(req: NextRequest) {
     if (!prompt) {
       return NextResponse.json({ error: 'Falta el "prompt" en la solicitud' }, { status: 400 });
     }
-
-    // Use the pre-initialized model from firebase.ts
-    // The system prompt is now part of the model initialization
+    
+    // Start a chat session with the model, including history and a system prompt
     const chat = geminiModel.startChat({
       history: buildHistory(history || []),
-      // Note: System prompt is often set at the model level, 
-      // but if you need to override it per chat, you could adjust gemini.ts 
-      // to create a new model instance here with the new systemPrompt.
-      // For now, we assume a global system prompt.
+      // The system prompt is now part of the model initialization in firebase.ts
     });
 
+    // Send the user's prompt to the model
     const result = await chat.sendMessage(prompt);
+    
+    // Get the model's response
     const response = result.response;
     const text = response.text();
 
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error detallado en la API de chat:', error);
     
-    // Return the actual error message from the Google API if available
+    // Return a more detailed error message from the Google API if available
     const errorMessage = error.response?.data?.error?.message || error.message || "Ocurrió un error desconocido en el servidor al contactar con Gemini.";
     
     return NextResponse.json(

@@ -141,6 +141,7 @@ export default function ChatbotPage() {
   }, [isLoading]);
 
   const callChatApi = async (currentMessages: Message[], userInput: string) => {
+    setErrorMessage(null);
     try {
         const isCourseQuery = cursos.some(course => 
           userInput.toLowerCase().includes(course.toLowerCase())
@@ -164,15 +165,16 @@ export default function ChatbotPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`API call failed with status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || `La llamada a la API falló con el estado: ${response.status}`);
       }
 
       const data = await response.json();
       return data.text;
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error calling chat API:", error);
-      setErrorMessage("Error de conexión - Espere y vuelva a intentar");
+      setErrorMessage(error.message || "Error de conexión - Espere y vuelva a intentar");
       return '';
     }
   };
@@ -192,7 +194,6 @@ export default function ChatbotPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     if (e) e.preventDefault();
-    setErrorMessage(null);
     const userInput = input;
     if (!userInput.trim()) return;
 
@@ -263,14 +264,19 @@ export default function ChatbotPage() {
     }
 
     const botResponseText = await callChatApi(messages, userInput);
-    const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
+    
+    if (botResponseText) {
+        const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
 
-    if (trimmedResponse.includes('[INICIAR_REGISTRO]')) {
-        setSalesStage('recopilar_nombre');
-        const cleanResponse = trimmedResponse.replace('[INICIAR_REGISTRO]', '').trim();
-        await sendBotMessage(cleanResponse.split('[---]'));
+        if (trimmedResponse.includes('[INICIAR_REGISTRO]')) {
+            setSalesStage('recopilar_nombre');
+            const cleanResponse = trimmedResponse.replace('[INICIAR_REGISTRO]', '').trim();
+            await sendBotMessage(cleanResponse.split('[---]'));
+        } else {
+            await sendBotMessage(trimmedResponse.split('[---]'));
+        }
     } else {
-        await sendBotMessage(trimmedResponse.split('[---]'));
+        setIsLoading(false);
     }
   };
 
@@ -283,7 +289,7 @@ export default function ChatbotPage() {
       <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 overflow-y-auto">
         <div className="container mx-auto h-full principal px-0 sm:px-6 lg:px-8">
             <div className="flex flex-col lg:flex-row gap-4 h-full">
-              <LeftPanel />
+              <LeftPanel salesStage={salesStage}/>
 
               <div className="w-full lg:w-1/2 flex flex-col bg-white rounded-2xl shadow-lg h-full overflow-hidden border border-gray-200">
                 <header className="bg-gray-50 border-b p-4 flex-shrink-0">
