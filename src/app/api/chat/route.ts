@@ -17,11 +17,14 @@ const buildHistory = (history: Message[]) => {
 
 export async function POST(req: NextRequest) {
   try {
-    const { history, prompt, systemPrompt: clientSystemPrompt } = await req.json();
+    const { history, prompt, systemPrompt } = await req.json();
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-    if (!GEMINI_API_KEY) {
-        return NextResponse.json({ error: 'La clave de API de Gemini no está configurada en el servidor.' }, { status: 500 });
+    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_API_KEY_HERE') {
+        return NextResponse.json({ 
+            error: 'La clave de API de Gemini no está configurada en el servidor.',
+            details: 'Por favor, añade tu clave de API al archivo .env en la raíz del proyecto.'
+        }, { status: 500 });
     }
 
     if (!prompt) {
@@ -30,12 +33,9 @@ export async function POST(req: NextRequest) {
     
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-    // Combine a base instruction with any specific prompt from the client
-    const finalSystemPrompt = `Eres un asesor comercial experto para Studyx. Tu objetivo es ayudar a los usuarios, responder sus preguntas y guiarlos para que se inscriban. Responde siempre en español, de forma amable y profesional. ${clientSystemPrompt || ''}`.trim();
-
     const geminiModel = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash-latest',
-      systemInstruction: finalSystemPrompt,
+      systemInstruction: systemPrompt || 'Eres un asesor comercial experto para Studyx. Tu objetivo es ayudar a los usuarios, responder sus preguntas y guiarlos para que se inscriban. Responde siempre en español, de forma amable y profesional.',
     });
     
     const chat = geminiModel.startChat({
