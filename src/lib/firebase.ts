@@ -20,11 +20,10 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // --- Gemini API Configuration ---
-// IMPORTANT: ADD YOUR GEMINI API KEY HERE
-const GEMINI_API_KEY = "YOUR_API_KEY_HERE";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
-if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_API_KEY_HERE") {
-  console.warn("La clave de API de Gemini no está configurada en `src/lib/firebase.ts`. El chat no funcionará.");
+if (!GEMINI_API_KEY) {
+  console.warn("La clave de API de Gemini no está configurada en el archivo .env. El chat no funcionará.");
 }
 
 // Create a single, shared instance of the GoogleGenerativeAI client
