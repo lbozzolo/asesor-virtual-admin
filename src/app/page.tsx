@@ -42,9 +42,14 @@ export default function ChatbotPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Fetch the system prompt from the public folder
     fetch('/systemPrompt.txt')
-      .then(res => res.text())
-      .then(text => setSystemPrompt(text));
+      .then(res => {
+        if (res.ok) return res.text();
+        throw new Error('Network response was not ok.');
+      })
+      .then(text => setSystemPrompt(text))
+      .catch(error => console.error("Failed to fetch system prompt:", error));
   }, []);
 
   useEffect(() => {
@@ -87,11 +92,12 @@ export default function ChatbotPage() {
   const sendBotMessage = async (textBlocks: string[]) => {
     for (const block of textBlocks) {
       setIsLoading(true);
+      // Simulate typing delay
       const charsPerSecond = 12;
       const timeToType = (block.length / charsPerSecond) * 1000;
-      const baseDelay = 500;
+      const baseDelay = 500; // Minimum delay
       const totalDelay = baseDelay + timeToType;
-      const maxDelay = 10000;
+      const maxDelay = 4000; // Maximum delay to avoid long waits
       const finalDelay = Math.min(totalDelay, maxDelay);
       
       await new Promise(resolve => setTimeout(resolve, finalDelay));
@@ -107,6 +113,7 @@ export default function ChatbotPage() {
         }
         return newMessages;
       });
+      // Small delay between message blocks
       await new Promise(resolve => setTimeout(resolve, 400));
     }
   };
@@ -142,6 +149,10 @@ export default function ChatbotPage() {
 
   const callChatApi = async (currentMessages: Message[], userInput: string) => {
     setErrorMessage(null);
+    if (!systemPrompt) {
+        setErrorMessage("El prompt del sistema aún no se ha cargado. Por favor, espera un momento.");
+        return '';
+    }
     try {
         const isCourseQuery = cursos.some(course => 
           userInput.toLowerCase().includes(course.toLowerCase())
@@ -160,16 +171,16 @@ export default function ChatbotPage() {
         body: JSON.stringify({
           history: currentMessages,
           prompt: fullPrompt,
-          systemPrompt,
+          systemPrompt, // Pass the loaded system prompt to the API
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.details || `La llamada a la API falló con el estado: ${response.status}`);
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.details || `La llamada a la API falló con el estado: ${response.status}`);
+      }
+      
       return data.text;
 
     } catch (error: any) {
@@ -226,7 +237,7 @@ export default function ChatbotPage() {
             let validationError = null;
             if (field === 'email' && !/\S+@\S+\.\S+/.test(userInput)) validationError = "Hmm, ese email no parece correcto...";
             if (field === 'phone' && !/^\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}$/.test(userInput)) validationError = "Ese número de teléfono no parece válido...";
-            if (validationError) { await sendBotMessage([validationError]); return; }
+            if (validationError) { setIsLoading(false); await sendBotMessage([validationError]); return; }
 
             const newData = { ...customerData, [field]: userInput };
             setCustomerData(newData);
@@ -309,7 +320,7 @@ export default function ChatbotPage() {
                         )}
                         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                             <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escribe tu consulta aquí..." className="flex-1 w-full px-4 py-3 border-2 border-transparent rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-base" disabled={isLoading} />
-                            <button type="submit" disabled={isLoading || !input.trim()} className="bg-indigo-600 text-white rounded-full p-3 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500"><Send size={20} /></button>
+                            <button type="submit" disabled={isLoading || !input.trim() || !systemPrompt} className="bg-indigo-600 text-white rounded-full p-3 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500"><Send size={20} /></button>
                         </form>
                     </div>
                 </footer>

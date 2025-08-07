@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
 
     const geminiModel = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash-latest',
-      systemInstruction: systemPrompt || 'Eres un asesor comercial experto para Studyx. Tu objetivo es ayudar a los usuarios, responder sus preguntas y guiarlos para que se inscriban. Responde siempre en español, de forma amable y profesional.',
+      // The system instruction is now passed from the frontend.
+      systemInstruction: systemPrompt || 'Eres un asistente útil. Responde en español.',
     });
     
     const chat = geminiModel.startChat({
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error detallado en la API de chat:', error);
     
+    // Attempt to extract a more specific error message from the Gemini API response
     const errorMessage = error.response?.data?.error?.message || error.message || "Ocurrió un error desconocido en el servidor al contactar con Gemini.";
     
     return NextResponse.json(
