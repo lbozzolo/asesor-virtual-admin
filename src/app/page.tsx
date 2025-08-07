@@ -43,7 +43,7 @@ export default function ChatbotPage() {
 
   useEffect(() => {
     // Fetch the system prompt from the public folder
-    fetch('/systemPrompt.txt')
+    fetch('/prompts/v1_base.txt')
       .then(res => {
         if (res.ok) return res.text();
         throw new Error('Network response was not ok.');
