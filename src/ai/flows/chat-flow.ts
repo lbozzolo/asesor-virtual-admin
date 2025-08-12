@@ -65,6 +65,7 @@ export async function chat(messages: Message[]): Promise<string> {
         generationConfig,
         safetySettings,
         history,
+        systemInstruction: systemPrompt,
     });
     
     const result = await chatSession.sendMessage(lastMessage.parts);
@@ -72,6 +73,6 @@ export async function chat(messages: Message[]): Promise<string> {
   } catch (error) {
     console.error("Error al chatear con Gemini:", error);
     // Consider providing a more user-friendly error message
-    throw new Error("No se pudo obtener una respuesta de la IA.");
+    throw new Error("No se pudo obtener una respuesta de la IA. Revisa la configuración y la clave de API.");
   }
 }
