@@ -12,15 +12,8 @@ import { LeftPanel } from '@/components/chatbot/left-panel';
 import { ChatHeader } from '@/components/chatbot/chat-header';
 import { TypingIndicator } from '@/components/chatbot/typing-indicator';
 import type { Message } from '@/types';
+// import { chat } from '@/ai/flows/chat-flow';
 
-
-// --- Función para obtener los cursos desde Google Sheets ---
-const getCursosFromGoogleSheets = async () => {
-    // This function needs to be implemented safely in a Next.js environment,
-    // likely using a Server Action or an API route to not expose the API key.
-    // For now, it will return an empty list.
-  return [];
-};
 
 // --- Componente Principal de la Aplicación de Chat ---
 export default function ChatbotPage() {
@@ -32,25 +25,12 @@ export default function ChatbotPage() {
   const [customerData, setCustomerData] = useState<any>({});
   const [showInvoice, setShowInvoice] = useState(false);
   const [inactivityPromptCount, setInactivityPromptCount] = useState(0);
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [cursos, setCursos] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Fetch the system prompt from the public folder
-    fetch('/prompts/v1_base.txt')
-      .then(res => {
-        if (res.ok) return res.text();
-        throw new Error('Network response was not ok.');
-      })
-      .then(text => setSystemPrompt(text))
-      .catch(error => console.error("Failed to fetch system prompt:", error));
-  }, []);
 
   useEffect(() => {
     const advisorNames = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Camila', 'Sebastián'];
@@ -64,6 +44,7 @@ export default function ChatbotPage() {
     
     const initializeConversation = async () => {
       try {
+        if (!newConversationId) return;
         await setDoc(doc(db, "conversations", newConversationId), {
           messages: [initialMessage],
           advisorName: randomName,
@@ -79,13 +60,6 @@ export default function ChatbotPage() {
     inputRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    const fetchCursos = async () => {
-        const data = await getCursosFromGoogleSheets();
-        setCursos(data.flat()); // Convierte las filas en un array plano
-    };
-    fetchCursos();
-  }, []);
 
   const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
   
@@ -146,49 +120,6 @@ export default function ChatbotPage() {
       inputRef.current?.focus();
     }
   }, [isLoading]);
-
-  const callChatApi = async (currentMessages: Message[], userInput: string) => {
-    setErrorMessage(null);
-    if (!systemPrompt) {
-        setErrorMessage("El prompt del sistema aún no se ha cargado. Por favor, espera un momento.");
-        return '';
-    }
-    try {
-        const isCourseQuery = cursos.some(course => 
-          userInput.toLowerCase().includes(course.toLowerCase())
-        );
-        const coursesList = cursos.length > 0 
-            ? `Aquí tienes la lista actualizada de cursos disponibles en Studyx: ${cursos.join(', ')}.` 
-            : 'Actualmente no hay cursos disponibles.';
-        
-        const fullPrompt = `${isCourseQuery ? coursesList : ''}\n\n${userInput}`.trim();
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          history: currentMessages,
-          prompt: fullPrompt,
-          systemPrompt, // Pass the loaded system prompt to the API
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.details || `La llamada a la API falló con el estado: ${response.status}`);
-      }
-      
-      return data.text;
-
-    } catch (error: any) {
-      console.error("Error calling chat API:", error);
-      setErrorMessage(error.message || "Error de conexión - Espere y vuelva a intentar");
-      return '';
-    }
-  };
 
   const updateConversationInFirestore = async (data: any) => {
     if (!conversationId) {
@@ -273,8 +204,12 @@ export default function ChatbotPage() {
         }
         return;
     }
-
-    const botResponseText = await callChatApi(messages, userInput);
+    
+    let botResponseText = 'Gracias por tu mensaje. Un asesor se pondrá en contacto contigo pronto. Si quieres iniciar el registro, escribe "quiero inscribirme".';
+    if (userInput.toLowerCase().includes('quiero inscribirme')) {
+        botResponseText = '[INICIAR_REGISTRO] ¡Genial! Vamos a empezar con tu registro. Primero, ¿cuál es tu nombre completo?';
+    }
+    setErrorMessage(null);
     
     if (botResponseText) {
         const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
@@ -286,9 +221,9 @@ export default function ChatbotPage() {
         } else {
             await sendBotMessage(trimmedResponse.split('[---]'));
         }
-    } else {
-        setIsLoading(false);
     }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -320,7 +255,7 @@ export default function ChatbotPage() {
                         )}
                         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                             <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escribe tu consulta aquí..." className="flex-1 w-full px-4 py-3 border-2 border-transparent rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-base" disabled={isLoading} />
-                            <button type="submit" disabled={isLoading || !input.trim() || !systemPrompt} className="bg-indigo-600 text-white rounded-full p-3 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500"><Send size={20} /></button>
+                            <button type="submit" disabled={isLoading || !input.trim()} className="bg-indigo-600 text-white rounded-full p-3 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500"><Send size={20} /></button>
                         </form>
                     </div>
                 </footer>
