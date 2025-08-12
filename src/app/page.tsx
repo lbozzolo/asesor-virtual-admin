@@ -112,22 +112,20 @@ export default function ChatbotPage() {
     if (e) e.preventDefault();
     const userInput = input;
     if (!userInput.trim()) return;
-
+  
     const userMessage: Message = { role: 'user', text: userInput };
     const newMessages: Message[] = [...messages, userMessage];
     setMessages(newMessages);
-    updateConversationInFirestore({ messages: newMessages, updatedAt: serverTimestamp() });
+    await updateConversationInFirestore({ messages: newMessages, updatedAt: serverTimestamp() });
     
     setInput('');
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
     setIsLoading(true);
-
+  
     try {
-        // Mocked AI response
-        const response = { text: "Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve." };
-        await sendBotMessage(response.text.split('[---]'));
-
+      // Temporarily disabled AI response
+      await sendBotMessage(["Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve."]);
+  
     } catch (error) {
         console.error('Error sending message:', error);
         setErrorMessage("Hubo un error al enviar tu mensaje. Por favor, intenta de nuevo.");
