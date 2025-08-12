@@ -23,12 +23,10 @@ export default function ChatbotPage() {
   const [salesStage, setSalesStage] = useState('sondear');
   const [customerData, setCustomerData] = useState<any>({});
   const [showInvoice, setShowInvoice] = useState(false);
-  const [inactivityPromptCount, setInactivityPromptCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -62,31 +60,9 @@ export default function ChatbotPage() {
 
   const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
   
-  const sendBotMessage = async (textBlocks: string[]) => {
-    for (const block of textBlocks) {
-      setIsLoading(true);
-      // Simulate typing delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setIsLoading(false);
-      setMessages(prev => {
-        const newMessages: Message[] = [...prev, { role: 'model', text: block }];
-        if (conversationId) {
-            updateDoc(doc(db, "conversations", conversationId), { 
-                messages: newMessages,
-                updatedAt: serverTimestamp()
-            });
-        }
-        return newMessages;
-      });
-      // Small delay between message blocks
-      await new Promise(resolve => setTimeout(resolve, 400));
-    }
-  };
-
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isLoading]);
 
 
   useEffect(() => {
@@ -95,44 +71,43 @@ export default function ChatbotPage() {
     }
   }, [isLoading]);
 
-  const updateConversationInFirestore = async (data: any) => {
+  const updateConversationInFirestore = async (newMessages: Message[]) => {
     if (!conversationId) {
       console.error("No se puede actualizar la conversación: ID de conversación no definido.");
       return;
     }
     try {
       const conversationRef = doc(db, "conversations", conversationId);
-      await updateDoc(conversationRef, data);
+      await updateDoc(conversationRef, { 
+        messages: newMessages, 
+        updatedAt: serverTimestamp() 
+      });
     } catch (error) {
       console.error("Error al actualizar la conversación en Firestore:", error);
     }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const userInput = input;
-    if (!userInput.trim()) return;
-  
+    e.preventDefault();
+    const userInput = input.trim();
+    if (!userInput) return;
+
     const userMessage: Message = { role: 'user', text: userInput };
-    const newMessages: Message[] = [...messages, userMessage];
-    setMessages(newMessages);
-    await updateConversationInFirestore({ messages: newMessages, updatedAt: serverTimestamp() });
-    
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput('');
-    
     setIsLoading(true);
-  
-    try {
-      // Temporarily disabled AI response
-      await sendBotMessage(["Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve."]);
-  
-    } catch (error) {
-        console.error('Error sending message:', error);
-        setErrorMessage("Hubo un error al enviar tu mensaje. Por favor, intenta de nuevo.");
-        await sendBotMessage(["Lo siento, estoy teniendo problemas para conectarme. Por favor, espera un momento y vuelve a intentarlo."]);
-    } finally {
-        setIsLoading(false);
-    }
+    
+    await updateConversationInFirestore(updatedMessages);
+    
+    // Simulate bot response
+    setTimeout(async () => {
+      const botMessage: Message = { role: 'model', text: "Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve." };
+      const finalMessages = [...updatedMessages, botMessage];
+      setMessages(finalMessages);
+      setIsLoading(false);
+      await updateConversationInFirestore(finalMessages);
+    }, 1000);
   };
 
   return (
