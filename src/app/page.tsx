@@ -1,3 +1,4 @@
+
 "use client";
 
 import './chatbot.css';
@@ -12,7 +13,7 @@ import { LeftPanel } from '@/components/chatbot/left-panel';
 import { ChatHeader } from '@/components/chatbot/chat-header';
 import { TypingIndicator } from '@/components/chatbot/typing-indicator';
 import type { Message } from '@/types';
-// import { chat } from '@/ai/flows/chat-flow';
+import { chat } from '@/ai/flows/chat-flow';
 
 
 // --- Componente Principal de la Aplicación de Chat ---
@@ -151,79 +152,46 @@ export default function ChatbotPage() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     setIsLoading(true);
 
-    if (salesStage === 'esperando_pago' && (userInput.toLowerCase().includes('ya pagué') || userInput.toLowerCase().includes('listo'))) {
-        setShowInvoice(true);
-        setSalesStage('finalizado');
-        updateConversationInFirestore({ status: "Vendido", completedAt: serverTimestamp() });
-        const finalMessage = `Excelente! Bienvenido a Studyx...`;
-        await sendBotMessage(finalMessage.split('[---]'));
-        return;
-    }
-
-    if (salesStage.startsWith('recopilar_')) {
-        const field = salesStage.split('_')[1];
-        const isQuestionOrDeviation = userInput.toLowerCase().includes('?') || userInput.toLowerCase().split(' ').length > 8 || ['qué', 'cómo', 'cuánto', 'por', 'dónde', 'cuál', 'pero', 'no quiero'].some(kw => userInput.toLowerCase().includes(kw));
+    try {
+        const chatResponse = await chat(messages, userInput);
+        const botResponseText = chatResponse.text;
         
-        if (!isQuestionOrDeviation) {
-            let validationError = null;
-            if (field === 'email' && !/\S+@\S+\.\S+/.test(userInput)) validationError = "Hmm, ese email no parece correcto...";
-            if (field === 'phone' && !/^\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}$/.test(userInput)) validationError = "Ese número de teléfono no parece válido...";
-            if (validationError) { setIsLoading(false); await sendBotMessage([validationError]); return; }
-
-            const newData = { ...customerData, [field]: userInput };
-            setCustomerData(newData);
-            updateConversationInFirestore({ customerData: newData, status: "Lead Capturado" });
-
-            const fields = ['nombre', 'email', 'phone', 'estado'];
-            const currentIndex = fields.indexOf(field);
-            if (currentIndex < fields.length - 1) {
-                const nextField = fields[currentIndex + 1];
-                setSalesStage(`recopilar_${nextField}`);
-                let question = `Perfecto. Ahora necesito tu ${nextField}, por favor.`;
-                if (nextField === 'estado') question = "Entendido. Y en qué estado de los Estados Unidos vives?";
-                await sendBotMessage([question]);
-            } else {
-                setSalesStage('verificar_datos');
-                const finalData = { ...newData, estado: userInput };
-                setCustomerData(finalData);
-                const verificationMessage = `Genial, gracias. Confirma que estos datos son correctos: [---] Nombre: ${finalData.nombre} [---] Email: ${finalData.email} [---] Teléfono: ${finalData.phone} [---] Estado: ${finalData.estado}. [---] Es todo correcto?`;
-                await sendBotMessage(verificationMessage.split('[---]'));
+        if (botResponseText) {
+            const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
+            
+            if (trimmedResponse.includes('[INICIAR_REGISTRO]')) {
+                setSalesStage('recopilar_nombre');
+                const cleanResponse = trimmedResponse.replace('[INICIAR_REGISTRO]', '').trim();
+                await sendBotMessage(cleanResponse.split('[---]'));
+            } else if (trimmedResponse.includes('[CREAR_ACCESO]')) {
+                setSalesStage('esperando_pago');
+                const cleanResponse = trimmedResponse.replace('[CREAR_ACCESO]', '').trim();
+                const paymentLink = "https://buy.stripe.com/5kA5m85flc8s4PKeUU";
+                const responseWithLink = cleanResponse.replace('[LINK_DE_PAGO]', paymentLink);
+                await sendBotMessage(responseWithLink.split('[---]'));
             }
-            return;
-        }
-    }
+            else {
+                await sendBotMessage(trimmedResponse.split('[---]'));
+            }
 
-    if (salesStage === 'verificar_datos') {
-        if (userInput.toLowerCase().includes('no')) {
-            setSalesStage('recopilar_nombre'); setCustomerData({});
-            await sendBotMessage(["No hay problema, empecemos de nuevo. Cuál es tu nombre completo?"]);
-        } else {
-            setSalesStage('esperando_pago'); const finalData = { ...customerData, nombre: customerData.nombre || 'Estudiante' };
-            const accessMessage = `Excelente, ${finalData.nombre}! Tu acceso ha sido creado...`;
-            await sendBotMessage(accessMessage.split('[---]'));
-        }
-        return;
-    }
-    
-    let botResponseText = 'Gracias por tu mensaje. Un asesor se pondrá en contacto contigo pronto. Si quieres iniciar el registro, escribe "quiero inscribirme".';
-    if (userInput.toLowerCase().includes('quiero inscribirme')) {
-        botResponseText = '[INICIAR_REGISTRO] ¡Genial! Vamos a empezar con tu registro. Primero, ¿cuál es tu nombre completo?';
-    }
-    setErrorMessage(null);
-    
-    if (botResponseText) {
-        const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
+            // Update sales stage based on response if needed
+            if (botResponseText.toLowerCase().includes('cuál es tu nombre')) setSalesStage('recopilar_nombre');
+            if (botResponseText.toLowerCase().includes('tu correo electrónico')) setSalesStage('recopilar_email');
+            if (botResponseText.toLowerCase().includes('tu número de teléfono')) setSalesStage('recopilar_phone');
+            if (botResponseText.toLowerCase().includes('qué estado')) setSalesStage('recopilar_estado');
+            if (botResponseText.toLowerCase().includes('confirma que estos datos son correctos')) setSalesStage('verificar_datos');
 
-        if (trimmedResponse.includes('[INICIAR_REGISTRO]')) {
-            setSalesStage('recopilar_nombre');
-            const cleanResponse = trimmedResponse.replace('[INICIAR_REGISTRO]', '').trim();
-            await sendBotMessage(cleanResponse.split('[---]'));
         } else {
-            await sendBotMessage(trimmedResponse.split('[---]'));
+            await sendBotMessage(["Lo siento, no he podido procesar tu solicitud. Inténtalo de nuevo."]);
         }
+
+    } catch (error) {
+        console.error('Error calling chat flow:', error);
+        setErrorMessage("Hubo un error al contactar al asistente. Por favor, intenta de nuevo.");
+        await sendBotMessage(["Lo siento, estoy teniendo problemas para conectarme. Por favor, espera un momento y vuelve a intentarlo."]);
+    } finally {
+        setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -233,7 +201,7 @@ export default function ChatbotPage() {
       <ChatHeader />
 
       <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 overflow-y-auto">
-        <div className="container mx-auto h-full principal px-0 sm:px-6 lg:px-8">
+        <div className="container mx-auto h-full principal px-0 sm:px-6 lg:p-8">
             <div className="flex flex-col lg:flex-row gap-4 h-full">
               <LeftPanel salesStage={salesStage}/>
 
