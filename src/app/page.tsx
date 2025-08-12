@@ -13,7 +13,6 @@ import { LeftPanel } from '@/components/chatbot/left-panel';
 import { ChatHeader } from '@/components/chatbot/chat-header';
 import { TypingIndicator } from '@/components/chatbot/typing-indicator';
 import type { Message } from '@/types';
-import { chat } from '@/ai/flows/chat-flow';
 
 
 // --- Componente Principal de la Aplicación de Chat ---
@@ -153,41 +152,12 @@ export default function ChatbotPage() {
     setIsLoading(true);
 
     try {
-        const chatResponse = await chat(messages, userInput);
-        const botResponseText = chatResponse.text;
-        
-        if (botResponseText) {
-            const trimmedResponse = botResponseText.replace(/^[\s\n]+/, '');
-            
-            if (trimmedResponse.includes('[INICIAR_REGISTRO]')) {
-                setSalesStage('recopilar_nombre');
-                const cleanResponse = trimmedResponse.replace('[INICIAR_REGISTRO]', '').trim();
-                await sendBotMessage(cleanResponse.split('[---]'));
-            } else if (trimmedResponse.includes('[CREAR_ACCESO]')) {
-                setSalesStage('esperando_pago');
-                const cleanResponse = trimmedResponse.replace('[CREAR_ACCESO]', '').trim();
-                const paymentLink = "https://buy.stripe.com/5kA5m85flc8s4PKeUU";
-                const responseWithLink = cleanResponse.replace('[LINK_DE_PAGO]', paymentLink);
-                await sendBotMessage(responseWithLink.split('[---]'));
-            }
-            else {
-                await sendBotMessage(trimmedResponse.split('[---]'));
-            }
-
-            // Update sales stage based on response if needed
-            if (botResponseText.toLowerCase().includes('cuál es tu nombre')) setSalesStage('recopilar_nombre');
-            if (botResponseText.toLowerCase().includes('tu correo electrónico')) setSalesStage('recopilar_email');
-            if (botResponseText.toLowerCase().includes('tu número de teléfono')) setSalesStage('recopilar_phone');
-            if (botResponseText.toLowerCase().includes('qué estado')) setSalesStage('recopilar_estado');
-            if (botResponseText.toLowerCase().includes('confirma que estos datos son correctos')) setSalesStage('verificar_datos');
-
-        } else {
-            await sendBotMessage(["Lo siento, no he podido procesar tu solicitud. Inténtalo de nuevo."]);
-        }
+        const botResponseText = "Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve.";
+        await sendBotMessage([botResponseText]);
 
     } catch (error) {
-        console.error('Error calling chat flow:', error);
-        setErrorMessage("Hubo un error al contactar al asistente. Por favor, intenta de nuevo.");
+        console.error('Error sending message:', error);
+        setErrorMessage("Hubo un error al enviar tu mensaje. Por favor, intenta de nuevo.");
         await sendBotMessage(["Lo siento, estoy teniendo problemas para conectarme. Por favor, espera un momento y vuelve a intentarlo."]);
     } finally {
         setIsLoading(false);
