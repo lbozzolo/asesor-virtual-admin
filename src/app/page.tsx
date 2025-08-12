@@ -13,6 +13,7 @@ import { LeftPanel } from '@/components/chatbot/left-panel';
 import { ChatHeader } from '@/components/chatbot/chat-header';
 import { TypingIndicator } from '@/components/chatbot/typing-indicator';
 import type { Message } from '@/types';
+import { chat } from '@/ai/flows/chat-flow';
 
 // --- Componente Principal de la Aplicación de Chat ---
 export default function ChatbotPage() {
@@ -97,17 +98,27 @@ export default function ChatbotPage() {
     setMessages(updatedMessages);
     setInput('');
     setIsLoading(true);
+    setErrorMessage(null);
     
     await updateConversationInFirestore(updatedMessages);
     
-    // Simulate bot response
-    setTimeout(async () => {
-      const botMessage: Message = { role: 'model', text: "Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve." };
-      const finalMessages = [...updatedMessages, botMessage];
+    try {
+      const responseText = await chat(updatedMessages);
+      const botResponse: Message = { role: 'model', text: responseText };
+      
+      const finalMessages = [...updatedMessages, botResponse];
       setMessages(finalMessages);
-      setIsLoading(false);
       await updateConversationInFirestore(finalMessages);
-    }, 1000);
+    } catch (error) {
+        console.error("Error al obtener respuesta de la IA:", error);
+        setErrorMessage("Lo siento, no pude procesar tu solicitud en este momento.");
+        const botResponse: Message = { role: 'model', text: "Tuve un problema para conectarme. Intenta de nuevo en un momento." };
+        const finalMessages = [...updatedMessages, botResponse];
+        setMessages(finalMessages);
+        await updateConversationInFirestore(finalMessages);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   return (
