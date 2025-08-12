@@ -14,7 +14,6 @@ import { ChatHeader } from '@/components/chatbot/chat-header';
 import { TypingIndicator } from '@/components/chatbot/typing-indicator';
 import type { Message } from '@/types';
 
-
 // --- Componente Principal de la Aplicación de Chat ---
 export default function ChatbotPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -67,14 +66,7 @@ export default function ChatbotPage() {
     for (const block of textBlocks) {
       setIsLoading(true);
       // Simulate typing delay
-      const charsPerSecond = 12;
-      const timeToType = (block.length / charsPerSecond) * 1000;
-      const baseDelay = 500; // Minimum delay
-      const totalDelay = baseDelay + timeToType;
-      const maxDelay = 4000; // Maximum delay to avoid long waits
-      const finalDelay = Math.min(totalDelay, maxDelay);
-      
-      await new Promise(resolve => setTimeout(resolve, finalDelay));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       setIsLoading(false);
       setMessages(prev => {
@@ -94,26 +86,8 @@ export default function ChatbotPage() {
 
   useEffect(() => {
     scrollToBottom();
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.role === 'model' && inactivityPromptCount < 2 && salesStage !== 'finalizado') {
-        const timeoutDuration = 120000; // 2 minutos
-        inactivityTimerRef.current = setTimeout(() => {
-            if (inactivityPromptCount === 0) { 
-                sendBotMessage(["Sigues ahí?"]); 
-                setInactivityPromptCount(1); 
-            } else if (inactivityPromptCount === 1) {
-                const finalMessage = "Parece que no es un buen momento. No te preocupes! Si quieres continuar la conversación más tarde, puedes escribirme a nuestro WhatsApp 786-916-4372. Que tengas un buen día!";
-                sendBotMessage(finalMessage.split('[---]'));
-                setInactivityPromptCount(2); 
-            }
-        }, timeoutDuration);
-    }
-    return () => {
-      if(inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
-    };
-  }, [messages, isLoading, inactivityPromptCount, salesStage, conversationId]);
+  }, [messages]);
+
 
   useEffect(() => {
     if (!isLoading) {
@@ -145,15 +119,14 @@ export default function ChatbotPage() {
     updateConversationInFirestore({ messages: newMessages, updatedAt: serverTimestamp() });
     
     setInput('');
-    if(inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    setInactivityPromptCount(0);
     
     await new Promise(resolve => setTimeout(resolve, 1000));
     setIsLoading(true);
 
     try {
-        const botResponseText = "Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve.";
-        await sendBotMessage([botResponseText]);
+        // Mocked AI response
+        const response = { text: "Gracias por tu mensaje. Un asesor se pondrá en contacto contigo en breve." };
+        await sendBotMessage(response.text.split('[---]'));
 
     } catch (error) {
         console.error('Error sending message:', error);
