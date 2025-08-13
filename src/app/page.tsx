@@ -20,29 +20,29 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [advisorName, setAdvisorName] = useState('');
+  const [advisorName, setAdvisorName] = useState<string | null>(null);
   const [salesStage, setSalesStage] = useState('sondear');
   const [customerData, setCustomerData] = useState<any>({});
   const [showInvoice, setShowInvoice] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Solo inicializar en el cliente
+    if (advisorName !== null && conversationId !== null) return;
     const advisorNames = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Camila', 'Sebastián'];
     const randomName = advisorNames[Math.floor(Math.random() * advisorNames.length)];
     setAdvisorName(randomName);
-    const initialMessage: Message = { role: 'model', text: `Hola! Mi nombre es ${randomName}, del equipo de asesoramiento de Studyx. Como puedo ayudarte?` };
+    const initialMessage: Message = { role: 'model', text: `Hola! Mi nombre es ${randomName}, del equipo de asesoramiento de Studyx. ¿Cómo puedo ayudarte?` };
     setMessages([initialMessage]);
-    
     const newConversationId = `conv-${Date.now()}`;
     setConversationId(newConversationId);
-    
     const initializeConversation = async () => {
       try {
-        if (!newConversationId) return;
         await setDoc(doc(db, "conversations", newConversationId), {
           messages: [initialMessage],
           advisorName: randomName,
@@ -52,9 +52,9 @@ export default function ChatbotPage() {
       } catch (error) {
         console.error("Error al inicializar la conversación:", error);
       }
+      setInitialized(true);
     };
     initializeConversation();
-
     inputRef.current?.focus();
   }, []);
 
@@ -121,17 +121,18 @@ export default function ChatbotPage() {
     }
   };
 
+  if (!initialized) {
+    // Evita renderizar hasta que la inicialización esté lista (solo en cliente)
+    return null;
+  }
   return (
     <div className="w-screen h-screen bg-gray-50 flex flex-col font-sans text-base">
       {showInvoice && <InvoiceModal customerData={customerData} onClose={() => setShowInvoice(false)} />}
-      
       <ChatHeader />
-
       <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 overflow-y-auto">
         <div className="container mx-auto h-full principal px-0 sm:px-6 lg:p-8">
             <div className="flex flex-col lg:flex-row gap-4 h-full">
               <LeftPanel salesStage={salesStage}/>
-
               <div className="w-full lg:w-1/2 flex flex-col bg-white rounded-2xl shadow-lg h-full overflow-hidden border border-gray-200">
                 <header className="bg-gray-50 border-b p-4 flex-shrink-0">
                     <h2 className="text-lg font-semibold text-gray-800">Habla con un Asesor</h2>
