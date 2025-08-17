@@ -1,18 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-let admin: any;
-let db: any;
-try {
-  admin = require('firebase-admin');
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID,
-    });
-  }
-  db = admin.firestore();
-} catch (e) {
-  console.error('No se pudo inicializar firebase-admin', e);
-}
+import { getAdminDb } from '@/server/firebase-admin';
 
 /*
   Endpoint POST /api/lead-capture
@@ -36,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const now = new Date().toISOString();
     const fullName = `${firstName} ${lastName||''}`.trim();
 
-  if (!db) return res.status(500).json({ error: 'Admin SDK no inicializado en el servidor' });
+  const db = getAdminDb();
   const ref = db.collection('conversations').doc(conversationId);
     await ref.set({
       customerData: {
@@ -62,6 +49,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ ok: true });
   } catch (e:any) {
     console.error('Lead capture error', e);
+    if (process.env.NODE_ENV === 'development') {
+      return res.status(500).json({ error: 'Error interno', details: e?.message || String(e), stack: e?.stack });
+    }
     return res.status(500).json({ error: 'Error interno' });
   }
 }

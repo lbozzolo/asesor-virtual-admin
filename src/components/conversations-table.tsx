@@ -15,8 +15,18 @@ interface ConversationRow {
   status?: string;
   createdAt?: any;
   messages?: Message[];
-  customerEmail?: string; // futuro
-  customerPhone?: string; // futuro
+  customerData?: {
+    fullName?: string;
+    firstName?: string;
+    email?: string;
+    phone?: string;
+  };
+  leadCapture?: {
+    requested?: boolean;
+    completed?: boolean;
+    completedAt?: any;
+    method?: string;
+  };
 }
 
 interface Props {
@@ -144,11 +154,19 @@ export function ConversationsTable({ conversations, loading }: Props) {
             <tbody>
               {conversations.map(c => {
                 const firstUserMsg = c.messages?.find(m => m.role === 'user');
-                const customerName = firstUserMsg?.text?.slice(0, 25) || 'Cliente';
+                const inferredName = c.customerData?.fullName || c.customerData?.firstName;
+                const customerName = inferredName || firstUserMsg?.text?.slice(0, 25) || 'Cliente';
                 return (
                   <tr key={c.id} className={`cursor-pointer hover:bg-muted/40 ${selectedId === c.id ? 'bg-muted/60' : ''}`} onClick={() => setSelectedId(c.id)}>
                     <td className="p-2 font-medium">{customerName}</td>
-                    <td className="p-2">{c.status || '—'}</td>
+                    <td className="p-2">
+                      <div className="flex flex-col gap-1">
+                        <span>{c.status || '—'}</span>
+                        {c.leadCapture?.completed && (
+                          <span className="inline-block w-fit text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-medium tracking-wide uppercase">Capturado</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-2 whitespace-nowrap">{c.createdAt?.toDate ? format(c.createdAt.toDate(), 'dd/MM HH:mm', { locale: es }) : '—'}</td>
                     <td className="p-2 text-center">{c.messages?.length || 0}</td>
                   </tr>
@@ -166,11 +184,21 @@ export function ConversationsTable({ conversations, loading }: Props) {
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
                 <div>
                   <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Cliente</span>
-                  <span className="font-medium">{(selected.messages?.find(m=>m.role==='user')?.text?.slice(0,40)) || 'Cliente'}</span>
+                  <span className="font-medium">
+                    {(selected as any).customerData?.fullName
+                      || (selected as any).customerData?.firstName
+                      || (selected.messages?.find(m=>m.role==='user')?.text?.slice(0,40))
+                      || 'Cliente'}
+                  </span>
                 </div>
                 <div>
                   <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Estado</span>
-                  <span>{selected.status || '—'}</span>
+                  <span className="flex items-center gap-2">
+                    {selected.status || '—'}
+                    {(selected as any).leadCapture?.completed && (
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-medium uppercase">Capturado</span>
+                    )}
+                  </span>
                 </div>
                 <div>
                   <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Creada</span>
@@ -180,16 +208,16 @@ export function ConversationsTable({ conversations, loading }: Props) {
                   <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">ID</span>
                   <span className="font-mono text-[11px]">{selected.id}</span>
                 </div>
-                {selected.customerEmail && (
+                {(selected as any).customerData?.email && (
                   <div>
                     <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Email</span>
-                    <span className="truncate max-w-[160px]">{selected.customerEmail}</span>
+                    <span className="truncate max-w-[160px]">{(selected as any).customerData.email}</span>
                   </div>
                 )}
-                {selected.customerPhone && (
+                {(selected as any).customerData?.phone && (
                   <div>
                     <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Teléfono</span>
-                    <span>{selected.customerPhone}</span>
+                    <span>{(selected as any).customerData.phone}</span>
                   </div>
                 )}
               </div>

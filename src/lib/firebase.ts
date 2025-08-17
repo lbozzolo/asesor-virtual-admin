@@ -2,15 +2,15 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// --- Firebase Configuration ---
+// --- Firebase Configuration (usa variables de entorno, NO hardcode) ---
 const firebaseConfig = {
-  apiKey: "AIzaSyA67xUpjVj_LSzSy0PcW6c9lWR1XsyyxUI",
-  authDomain: "asesor-comercial-studyx.firebaseapp.com",
-  projectId: "asesor-comercial-studyx",
-  storageBucket: "asesor-comercial-studyx.appspot.com",
-  messagingSenderId: "334651698448",
-  appId: "1:334651698448:web:2e8c74bd79ccfa61440995",
-  measurementId: "G-48HV4WN2P4"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase App
