@@ -29,6 +29,22 @@ export function UsersTable({ users, onEditUser, loading }: UsersTableProps) {
   const { appUser: currentUser } = useAuth();
   const { toast } = useToast();
   const functions = getFunctions(firebaseApp);
+  const isLocalDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+
+  const handleDevPasswordReset = async (target: AppUser) => {
+    const confirmMsg = `Esto generará una nueva contraseña DEV para ${target.email}.\nSe mostrará una sola vez. ¿Continuar?`;
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      const callable = httpsCallable(functions, 'devSetUserPassword');
+      const result: any = await callable({ uid: target.uid });
+      const newPass = result.data.password;
+      try { await navigator.clipboard.writeText(newPass); } catch {}
+      toast({ title: 'Contraseña generada', description: `Copiada al portapapeles: ${newPass}` });
+    } catch (e: any) {
+      console.error('Error reset pass dev', e);
+      toast({ variant: 'destructive', title: 'Error', description: e.message || 'No se pudo generar la contraseña.' });
+    }
+  };
 
   const handleToggleSuspend = async (userToSuspend: AppUser) => {
     if (currentUser?.uid === userToSuspend.uid) {
@@ -128,6 +144,11 @@ export function UsersTable({ users, onEditUser, loading }: UsersTableProps) {
                             {user.suspended ? <CheckCircle className="mr-2 h-4 w-4" /> : <XCircle className="mr-2 h-4 w-4" />}
                             {user.suspended ? 'Reactivar' : 'Suspender'}
                         </DropdownMenuItem>
+                        {isLocalDev && (
+                          <DropdownMenuItem onClick={() => handleDevPasswordReset(user)}>
+                            <Trash2 className="mr-2 h-4 w-4 rotate-180" />Reset Pass (dev)
+                          </DropdownMenuItem>
+                        )}
                     </DropdownMenuContent>
                  </DropdownMenu>
                 )}

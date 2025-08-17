@@ -104,9 +104,7 @@ export default function LoginPage() {
             </form>
           </Form>
           <div className="mt-4 text-center text-sm">
-            <Link href="/reset-password" legacyBehavior>
-              <a className="underline">¿Olvidaste tu contraseña?</a>
-            </Link>
+            <Link href="/reset-password" className="underline">¿Olvidaste tu contraseña?</Link>
           </div>
         </CardContent>
       </Card>

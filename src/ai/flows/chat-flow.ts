@@ -30,6 +30,30 @@ const safetySettings = [
   },
 ];
 
+// Keyword local configurable
+const LEAD_CAPTURE_KEYWORD = process.env.NEXT_PUBLIC_LEAD_CAPTURE_KEYWORD || '!capturar';
+
+// (Eliminado uso de firebase-admin aquí para evitar errores en runtime Edge.)
+
+async function maybeTriggerLeadCapture(allMessages: Message[]): Promise<{ triggered: boolean; reply?: string; }> {
+  const last = allMessages[allMessages.length - 1];
+  if (!last || last.role !== 'user') return { triggered: false };
+  const text = last.text.trim().toLowerCase();
+  // Disparo explícito por keyword
+  if (text === LEAD_CAPTURE_KEYWORD.toLowerCase()) {
+    return { triggered: true, reply: 'Perfecto, para poder continuar necesito algunos datos para contactarte. Completa el formulario que aparece debajo (nombre, email y teléfono). Luego te confirmo y seguimos.' };
+  }
+  // Heurística simple: si ya hubo al menos 4 mensajes del usuario y menciona palabras de intención
+  const userCount = allMessages.filter(m => m.role === 'user').length;
+  if (userCount >= 4) {
+    const intentWords = ['inscrib', 'precio', 'cost', 'costo', 'matricul', 'quiero empezar', 'empezar'];
+    if (intentWords.some(w => text.includes(w))) {
+      return { triggered: true, reply: 'Genial, antes de darte más detalles necesito tus datos de contacto (nombre, email y teléfono). Completa el formulario que ves ahora y seguimos enseguida.' };
+    }
+  }
+  return { triggered: false };
+}
+
 export async function chat(messages: Message[]): Promise<string> {
   try {
     // Siempre ejecuta en servidor (este módulo es 'use server').
@@ -87,7 +111,13 @@ export async function chat(messages: Message[]): Promise<string> {
       }
     }
 
-    // 2) No parece una consulta de cursos: usar Gemini para el resto
+    // 2) Revisión de posible disparo de captura de datos (no interfiere con curso)
+    const leadTrigger = await maybeTriggerLeadCapture(userMessages);
+    if (leadTrigger.triggered) {
+      return leadTrigger.reply || 'Por favor completa el formulario de datos para continuar.';
+    }
+
+    // 3) No parece una consulta de cursos ni disparo de captura: usar Gemini para el resto
     // Si estamos en el servidor, usar el SDK
     // console.log('DEBUG GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'PRESENTE' : 'NO DEFINIDA');
     if (!process.env.GEMINI_API_KEY) {

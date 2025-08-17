@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getFirestore, collection, onSnapshot, query, Timestamp } from "firebase/firestore";
+import { collection, query, Timestamp, orderBy, limit, getDocs, startAfter, DocumentSnapshot } from "firebase/firestore";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricsDashboard } from "@/components/metrics-dashboard";
@@ -20,49 +20,58 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   
-  useEffect(() => {
-    const q = query(collection(db, "conversations"));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const leadsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        
-        let lastContactDate: Date;
-        const contactTimestamp = data.updatedAt || data.createdAt;
+  const PAGE_SIZE = 15;
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-        if (contactTimestamp instanceof Timestamp) {
-            lastContactDate = contactTimestamp.toDate();
-        } else if (typeof contactTimestamp === 'string' && contactTimestamp) {
-            lastContactDate = new Date(contactTimestamp);
-        } else if (contactTimestamp && typeof contactTimestamp.toDate === 'function') { // Handle Firestore Timestamp object from a different context
-            lastContactDate = contactTimestamp.toDate();
-        }
-        else {
-            lastContactDate = new Date();
-        }
-        
-        const customerName = data.customerData?.nombre || "Nombre no disponible";
+  const mapDocs = (docs: any[]) => docs.map(doc => {
+    const data = doc.data();
+    let lastContactDate: Date;
+    const contactTimestamp = data.updatedAt || data.createdAt;
+    if (contactTimestamp instanceof Timestamp) {
+      lastContactDate = contactTimestamp.toDate();
+    } else if (typeof contactTimestamp === 'string' && contactTimestamp) {
+      lastContactDate = new Date(contactTimestamp);
+    } else if (contactTimestamp && typeof contactTimestamp.toDate === 'function') {
+      lastContactDate = contactTimestamp.toDate();
+    } else {
+      lastContactDate = new Date();
+    }
+    const customerName = data.customerData?.nombre || 'Nombre no disponible';
+    return {
+      id: doc.id,
+      customerName,
+      customerAvatar: 'https://placehold.co/100x100.png',
+      advisorName: data.advisorName || 'Asesor no asignado',
+      advisorAvatar: 'https://placehold.co/100x100.png',
+      status: data.status || 'Iniciado',
+      lastContact: formatDistanceToNow(lastContactDate, { addSuffix: true, locale: es }),
+      messages: data.messages || [],
+    } as Lead;
+  });
 
-        return {
-          id: doc.id,
-          customerName: customerName,
-          customerAvatar: `https://placehold.co/100x100.png`,
-          advisorName: data.advisorName || "Asesor no asignado",
-          advisorAvatar: `https://placehold.co/100x100.png`,
-          status: data.status || "Iniciado",
-          lastContact: formatDistanceToNow(lastContactDate, { addSuffix: true, locale: es }),
-          messages: data.messages || [],
-        } as Lead;
-      });
-      setLeads(leadsData);
-      setLoading(false);
-    }, (error) => {
-        console.error("Error al obtener datos de Firestore:", error);
-        setLoading(false);
-    });
+  const loadPage = async (next = false) => {
+    if (next && (!hasMore || loadingMore)) return;
+    try {
+      if (next) setLoadingMore(true); else setLoading(true);
+  const constraints: any[] = [orderBy('createdAt', 'desc')];
+  if (next && lastDoc) constraints.push(startAfter(lastDoc));
+  constraints.push(limit(PAGE_SIZE));
+  const q = query(collection(db, 'conversations'), ...constraints);
+      const snap = await getDocs(q);
+      const newLeads = mapDocs(snap.docs);
+      if (next) setLeads(prev => [...prev, ...newLeads]); else setLeads(newLeads);
+      setLastDoc(snap.docs[snap.docs.length - 1] || null);
+      setHasMore(snap.size === PAGE_SIZE);
+    } catch (e) {
+      console.error('Error paginando conversaciones en dashboard', e);
+    } finally {
+      if (next) setLoadingMore(false); else setLoading(false);
+    }
+  };
 
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => { loadPage(false); }, []);
 
   const handleViewLead = (lead: Lead) => {
     setSelectedLead(lead);
@@ -82,6 +91,18 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <LeadsTable leads={leads} onViewLead={handleViewLead} loading={loading} />
+            <div className="mt-4 flex justify-center">
+              {hasMore && !loading && (
+                <button
+                  onClick={() => loadPage(true)}
+                  disabled={loadingMore}
+                  className="px-4 py-1.5 text-sm border rounded-md hover:bg-muted disabled:opacity-50"
+                >{loadingMore ? 'Cargando...' : 'Cargar más'}</button>
+              )}
+              {!hasMore && !loading && (
+                <p className="text-xs text-muted-foreground">No hay más registros.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </main>

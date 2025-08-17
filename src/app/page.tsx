@@ -14,6 +14,7 @@ import { ChatHeader } from '@/components/chatbot/chat-header';
 import { TypingIndicator } from '@/components/chatbot/typing-indicator';
 import type { Message } from '@/types';
 import { chat } from '@/ai/flows/chat-flow';
+import { LeadCaptureForm } from '@/components/lead-capture-form';
 
 // --- Componente Principal de la Aplicación de Chat ---
 export default function ChatbotPage() {
@@ -27,6 +28,8 @@ export default function ChatbotPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [leadCaptureRequested, setLeadCaptureRequested] = useState(false);
+  const [leadCaptured, setLeadCaptured] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +108,9 @@ export default function ChatbotPage() {
     try {
       const responseText = await chat(updatedMessages);
       const botResponse: Message = { role: 'model', text: responseText };
+      if (/completa el formulario/i.test(responseText) || /tus datos de contacto/i.test(responseText)) {
+        setLeadCaptureRequested(true);
+      }
       
       const finalMessages = [...updatedMessages, botResponse];
       setMessages(finalMessages);
@@ -139,6 +145,14 @@ export default function ChatbotPage() {
                 </header>
                 <main className="flex-1 overflow-y-auto p-4 text-base">
                     {messages.map((msg, index) => <ChatMessage key={index} message={msg} />)}
+                    {leadCaptureRequested && !leadCaptured && conversationId && (
+                      <div className="mt-4">
+                        <LeadCaptureForm
+                          conversationId={conversationId}
+                          onCompleted={() => { setLeadCaptured(true); }}
+                        />
+                      </div>
+                    )}
                     {isLoading && <TypingIndicator />}
                     <div ref={chatEndRef} />
                 </main>

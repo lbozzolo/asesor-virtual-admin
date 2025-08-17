@@ -8,11 +8,15 @@
  */
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as functionsCore from 'firebase-functions';
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// Dev key helper (lee primero variable de entorno y luego runtime config: firebase functions:config:set dev.reset_key="valor")
+const DEV_KEY = process.env.DEV_RESET_KEY || (functionsCore.config().dev?.reset_key || '');
 
 type UserRole = "superadmin" | "admin" | "operador";
 
@@ -157,3 +161,91 @@ export const toggleUserSuspension = onCall(async (request) => {
         throw new HttpsError("internal", "Error al cambiar el estado de suspensión del usuario.");
     }
 });
+
+// Generar enlace de restablecimiento de contraseña (solo desarrollo) 
+// Devuelve un link para abrir manualmente sin enviar correo. Útil en entorno local.
+export const devGeneratePasswordResetLink = onCall<{ email: string; devKey?: string }>(async (request) => {
+    // Solo disponible fuera de producción
+    if (process.env.NODE_ENV === 'production') {
+        throw new HttpsError('permission-denied', 'No disponible en producción.');
+    }
+
+    const { email, devKey } = request.data || {};
+    if (!email) {
+        throw new HttpsError('invalid-argument', 'Falta email.');
+    }
+
+    // Permitir dos modos:
+    // 1. Usuario autenticado con rol admin/superadmin.
+    // 2. Sin autenticación pero aportando devKey coincidente con variable de entorno DEV_RESET_KEY (para flujos de “olvidé mi contraseña” sin sesión).
+    let authorized = false;
+    if (request.auth) {
+        const role = await getUserRole(request.auth.uid);
+        if (['admin', 'superadmin'].includes(role)) authorized = true;
+        } else if (devKey && DEV_KEY && devKey === DEV_KEY) {
+        authorized = true;
+    }
+
+    if (!authorized) {
+        throw new HttpsError('permission-denied', 'No autorizado para generar enlace.');
+    }
+
+    try {
+        const link = await admin.auth().generatePasswordResetLink(email, {
+            url: 'http://localhost:3000/login'
+        });
+        logger.info('Reset link generado (dev)', { email, by: request.auth?.uid || 'devKey' });
+        return { link };
+    } catch (error) {
+        logger.error('Error generando reset link', error);
+        throw new HttpsError('internal', 'No se pudo generar el enlace.');
+    }
+});
+
+// Establecer (o generar) una contraseña para un usuario en desarrollo
+export const devSetUserPassword = onCall<{ uid?: string; email?: string; newPassword?: string; devKey?: string }>(async (request) => {
+    if (process.env.NODE_ENV === 'production') {
+        throw new HttpsError('permission-denied', 'No disponible en producción.');
+    }
+    const { uid, email, newPassword, devKey } = request.data || {};
+    if (!uid && !email) throw new HttpsError('invalid-argument', 'Falta uid o email.');
+
+    let authorized = false;
+    if (request.auth) {
+        const role = await getUserRole(request.auth.uid);
+        if (['admin','superadmin'].includes(role)) authorized = true;
+        } else if (devKey && DEV_KEY && devKey === DEV_KEY) {
+        authorized = true;
+    }
+    if (!authorized) throw new HttpsError('permission-denied', 'No autorizado.');
+
+    let targetUid = uid;
+    if (!targetUid && email) {
+        try {
+            const userRecord = await admin.auth().getUserByEmail(email);
+            targetUid = userRecord.uid;
+        } catch (e) {
+            throw new HttpsError('not-found', 'No se encontró un usuario con ese email.');
+        }
+    }
+
+    if (!targetUid) throw new HttpsError('invalid-argument', 'No se pudo resolver el UID.');
+
+    const pwd = newPassword && newPassword.length >= 8 ? newPassword : generateRandomPassword();
+    try {
+        await admin.auth().updateUser(targetUid, { password: pwd });
+        logger.info('Password dev seteada', { target: targetUid, by: request.auth?.uid || 'devKey' });
+        return { uid: targetUid, password: pwd };
+    } catch (e) {
+        logger.error('Error seteando password dev', e);
+        throw new HttpsError('internal', 'No se pudo actualizar la contraseña.');
+    }
+});
+
+function generateRandomPassword(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*?';
+    const len = 14;
+    let out = '';
+    for (let i=0;i<len;i++) out += chars[Math.floor(Math.random()*chars.length)];
+    return out;
+}
