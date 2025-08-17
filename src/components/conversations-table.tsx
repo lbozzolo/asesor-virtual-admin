@@ -37,9 +37,13 @@ interface Props {
 export function ConversationsTable({ conversations, loading }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = conversations.find(c => c.id === selectedId);
-  const [summarizing, setSummarizing] = useState(false);
-  const [summary, setSummary] = useState<string | null>(null);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  // Map de resúmenes por conversación: id -> { text, error }
+  const [summaries, setSummaries] = useState<Record<string, { text: string; error?: string }>>({});
+  // id actualmente en proceso de resumen
+  const [summarizingId, setSummarizingId] = useState<string | null>(null);
+  const summary = selectedId ? summaries[selectedId]?.text || null : null;
+  const summaryError = selectedId ? summaries[selectedId]?.error || null : null;
+  const summarizing = summarizingId === selectedId;
 
   // Hook debe declararse antes de cualquier return condicional para no romper el orden de Hooks.
   const exportCSV = useCallback(() => {
@@ -64,9 +68,10 @@ export function ConversationsTable({ conversations, loading }: Props) {
 
   const handleSummarize = async () => {
     if (!selected || summarizing) return;
-    setSummarizing(true);
-    setSummaryError(null);
-    setSummary(null);
+    const id = selected.id;
+    setSummarizingId(id);
+    // limpiar estado previo de ese id
+    setSummaries(prev => ({ ...prev, [id]: { text: '' } }));
     try {
       const resp = await fetch('/api/summarize-conversation', {
         method: 'POST',
@@ -75,11 +80,11 @@ export function ConversationsTable({ conversations, loading }: Props) {
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || 'Fallo al resumir');
-      setSummary(data.summary);
+      setSummaries(prev => ({ ...prev, [id]: { text: data.summary } }));
     } catch (e: any) {
-      setSummaryError(e.message);
+      setSummaries(prev => ({ ...prev, [id]: { text: '', error: e.message } }));
     } finally {
-      setSummarizing(false);
+      setSummarizingId(null);
     }
   };
 
@@ -100,16 +105,16 @@ export function ConversationsTable({ conversations, loading }: Props) {
         const value = raw.substring(map.key.length).trim() || '—';
         const Icon = map.icon;
         return (
-          <div key={map.key} className="flex gap-2 rounded-md bg-background/60 border border-border/60 px-3 py-2 shadow-sm">
+          <div key={map.key} className="flex gap-2 rounded-md bg-neutral-800/80 border border-neutral-700 px-3 py-2 shadow-sm">
             <div className={`mt-0.5 ${map.color}`}><Icon className="h-4 w-4" /></div>
             <div className="text-xs leading-relaxed">
-              <p className="font-semibold tracking-wide text-[11px] uppercase opacity-80">{map.label}</p>
-              <p className="mt-0.5 whitespace-pre-wrap break-words">{value}</p>
+              <p className="font-semibold tracking-wide text-[11px] uppercase text-neutral-200">{map.label}</p>
+              <p className="mt-0.5 whitespace-pre-wrap break-words text-neutral-100">{value}</p>
             </div>
           </div>
         );
       }
-      return <div key={raw} className="text-xs whitespace-pre-wrap break-words px-2 py-1 rounded bg-muted/30">{raw}</div>;
+      return <div key={raw} className="text-xs whitespace-pre-wrap break-words px-3 py-2 rounded bg-neutral-800/60 border border-neutral-700 text-neutral-100">{raw}</div>;
     });
     return (
       <div className="space-y-2">
@@ -176,106 +181,109 @@ export function ConversationsTable({ conversations, loading }: Props) {
         </table>
         <p className="text-xs text-muted-foreground sticky bottom-0 bg-background/90 backdrop-blur pt-2 pb-1 mt-2 border-t">Pulsa una fila para ver el transcript. Usa Exportar para descargar un resumen.</p>
       </div>
-      {/* Columna derecha: panel sticky que siempre queda visible */}
-      <div className="md:sticky md:top-4 self-start">
+      {/* Columna derecha: ahora dividida en Transcript (izq) + Info Panel (der) */}
+      <div className="md:sticky md:top-4 self-start h-[80vh] border rounded-md flex overflow-hidden">
         {selected ? (
-          <ScrollArea className="h-[80vh] border rounded-md">
-            <div className="p-4 pb-3 border-b bg-muted/30 backdrop-blur-sm sticky top-0 z-10">
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
-                <div>
-                  <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Cliente</span>
-                  <span className="font-medium">
-                    {(selected as any).customerData?.fullName
-                      || (selected as any).customerData?.firstName
-                      || (selected.messages?.find(m=>m.role==='user')?.text?.slice(0,40))
-                      || 'Cliente'}
-                  </span>
+          <>
+            {/* Transcript */}
+            <div className="flex-1 flex flex-col bg-background/50">
+              <div className="border-b px-3 py-2 flex items-center justify-between">
+                <div className="text-xs font-medium truncate">
+                  {(selected as any).customerData?.fullName || (selected as any).customerData?.firstName || 'Cliente'}
                 </div>
-                <div>
-                  <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Estado</span>
-                  <span className="flex items-center gap-2">
-                    {selected.status || '—'}
-                    {(selected as any).leadCapture?.completed && (
-                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-medium uppercase">Capturado</span>
-                    )}
-                  </span>
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="uppercase tracking-wide opacity-70">{selected.status || '—'}</span>
+                  {(selected as any).leadCapture?.completed && (
+                    <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-600 text-white font-semibold">Capturado</span>
+                  )}
                 </div>
-                <div>
-                  <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Creada</span>
-                  <span>{selected.createdAt?.toDate ? format(selected.createdAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : '—'}</span>
-                </div>
-                <div className="truncate max-w-[140px]" title={selected.id}>
-                  <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">ID</span>
-                  <span className="font-mono text-[11px]">{selected.id}</span>
-                </div>
-                {(selected as any).customerData?.email && (
-                  <div>
-                    <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Email</span>
-                    <span className="truncate max-w-[160px]">{(selected as any).customerData.email}</span>
-                  </div>
-                )}
-                {(selected as any).customerData?.phone && (
-                  <div>
-                    <span className="block text-[10px] uppercase text-muted-foreground tracking-wide">Teléfono</span>
-                    <span>{(selected as any).customerData.phone}</span>
-                  </div>
-                )}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={handleSummarize}
-                  disabled={summarizing}
-                  className="px-2 py-1 text-xs border rounded-md hover:bg-muted disabled:opacity-50"
-                >{summarizing ? 'Generando resumen...' : 'Generar resumen IA'}</button>
-                {summary && (
-                  <button
-                    onClick={() => navigator.clipboard.writeText(summary)}
-                    className="px-2 py-1 text-xs border rounded-md hover:bg-muted"
-                  >Copiar resumen</button>
-                )}
-                {summaryError && <span className="text-[10px] text-red-600">{summaryError}</span>}
-              </div>
+              <ScrollArea className="flex-1 p-4">
+                <ChatTranscript 
+                  lead={{
+                    id: selected.id,
+                    customerName: 'Cliente',
+                    advisorName: 'Asesor',
+                    status: (selected.status as any) || 'Iniciado',
+                    lastContact: '',
+                    messages: selected.messages || [],
+                  } as any}
+                  transcript={selected.messages || []}
+                  loading={false}
+                />
+              </ScrollArea>
             </div>
-            <div className="p-4">
-              {summary && (
-                <div className="mb-4 rounded-lg border border-border/70 bg-gradient-to-br from-muted/70 via-background to-background p-4 shadow-sm relative overflow-hidden">
-                  <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_30%_25%,theme(colors.primary/30),transparent_60%)]" />
-                  <div className="relative flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">Resumen IA</h3>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => summary && navigator.clipboard.writeText(summary)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-medium hover:bg-muted"
-                        title="Copiar texto completo"
-                      >
-                        <Copy className="h-3 w-3" /> Copiar
-                      </button>
-                      <button
-                        onClick={() => { setSummary(null); setSummaryError(null); }}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-medium hover:bg-muted"
-                        title="Cerrar resumen"
-                      >X</button>
+            {/* Info Panel (scrollable completo) */}
+            <ScrollArea className="w-80 border-l bg-neutral-900/90 border-neutral-800 backdrop-blur-sm relative text-neutral-200">
+              <div className="absolute inset-0 pointer-events-none opacity-25 bg-[radial-gradient(circle_at_70%_20%,theme(colors.emerald.600)/25,transparent_60%)]" />
+              <div className="p-3 border-b border-neutral-800 relative">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-300 mb-2">Datos</h3>
+                <div className="space-y-2 text-xs text-neutral-300">
+                  <div>
+                    <p className="text-[10px] uppercase opacity-50 tracking-wide">Cliente</p>
+                    <p className="font-medium break-words text-neutral-100">{(selected as any).customerData?.fullName || (selected as any).customerData?.firstName || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase opacity-50 tracking-wide">Estado</p>
+                    <p className="flex items-center gap-2 text-neutral-200">{selected.status || '—'} {(selected as any).leadCapture?.completed && <span className="inline-block text-[10px] px-1 py-0.5 rounded bg-emerald-600 text-white shadow-sm">Capturado</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase opacity-50 tracking-wide">Creada</p>
+                    <p className="text-neutral-300">{selected.createdAt?.toDate ? format(selected.createdAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase opacity-50 tracking-wide">ID</p>
+                    <p className="font-mono text-[11px] break-all text-neutral-400">{selected.id}</p>
+                  </div>
+                  {(selected as any).customerData?.email && (
+                    <div>
+                      <p className="text-[10px] uppercase opacity-50 tracking-wide">Email</p>
+                      <p className="break-words text-neutral-300">{(selected as any).customerData.email}</p>
                     </div>
-                  </div>
-                  {formattedSummary}
+                  )}
+                  {(selected as any).customerData?.phone && (
+                    <div>
+                      <p className="text-[10px] uppercase opacity-50 tracking-wide">Teléfono</p>
+                      <p className="text-neutral-300">{(selected as any).customerData.phone}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-              <ChatTranscript 
-                lead={{
-                  id: selected.id,
-                  customerName: 'Cliente',
-                  advisorName: 'Asesor',
-                  status: (selected.status as any) || 'Iniciado',
-                  lastContact: '',
-                  messages: selected.messages || [],
-                } as any}
-                transcript={selected.messages || []}
-                loading={false}
-              />
-            </div>
-          </ScrollArea>
+              </div>
+              <div className="p-3 border-b border-neutral-800 relative">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-300 mb-2">Resumen IA</h3>
+                <div className="flex gap-2 mb-2 flex-wrap">
+                  <button
+                    onClick={handleSummarize}
+                    disabled={summarizing}
+                    className="px-2 py-1 text-[11px] rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >{summarizing ? 'Generando…' : 'Generar'}</button>
+                  {summary && summary.length > 0 && (
+                    <button
+                      onClick={() => summary && navigator.clipboard.writeText(summary)}
+                      className="px-2 py-1 text-[11px] border rounded-md hover:bg-neutral-800 border-neutral-700 text-neutral-200"
+                    >Copiar</button>
+                  )}
+                  {summary && summary.length > 0 && (
+                    <button
+                      onClick={() => { if (selectedId) setSummaries(prev => { const copy = { ...prev }; delete copy[selectedId]; return copy; }); }}
+                      className="px-2 py-1 text-[11px] border rounded-md hover:bg-neutral-800 border-neutral-700 text-neutral-200"
+                    >Borrar</button>
+                  )}
+                </div>
+                {summaryError && <p className="text-[10px] text-red-400 mb-2">{summaryError}</p>}
+                <div className="space-y-2 pr-1">
+                  {summary && summary.length > 0 ? formattedSummary : (
+                    <p className="text-[10px] text-neutral-500">No generado aún.</p>
+                  )}
+                </div>
+              </div>
+              <div className="p-3 text-[10px] text-neutral-500 border-t border-neutral-800">
+                Panel de información — más datos próximamente.
+              </div>
+            </ScrollArea>
+          </>
         ) : (
-          <Card className="flex h-[40vh] md:h-[80vh] items-center justify-center p-4 text-sm text-muted-foreground">Selecciona una conversación para ver el detalle.</Card>
+          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Selecciona una conversación para ver el detalle.</div>
         )}
       </div>
     </div>
