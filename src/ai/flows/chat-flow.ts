@@ -7,9 +7,16 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Message } from '@/types';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { getEnvOrSecret } from '@/helpers/secret';
 
-// Asegúrate de que la clave de API esté disponible como una variable de entorno.
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// Lazy init del cliente Gemini para poder resolver secreto asíncrono.
+let _genAI: GoogleGenerativeAI | null = null;
+async function getGenAI(): Promise<GoogleGenerativeAI> {
+  if (_genAI) return _genAI;
+  const key = await getEnvOrSecret('GEMINI_API_KEY');
+  _genAI = new GoogleGenerativeAI(key);
+  return _genAI;
+}
 
 const safetySettings = [
   {
@@ -119,10 +126,7 @@ export async function chat(messages: Message[]): Promise<string> {
 
     // 3) No parece una consulta de cursos ni disparo de captura: usar Gemini para el resto
     // Si estamos en el servidor, usar el SDK
-    // console.log('DEBUG GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'PRESENTE' : 'NO DEFINIDA');
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("La clave de API de Gemini no está configurada en las variables de entorno.");
-    }
+  const genAI = await getGenAI();
     const systemPromptPath = path.join(process.cwd(), 'public', 'prompts', 'v1_base.txt');
     const systemPrompt = await fs.readFile(systemPromptPath, 'utf-8');
     const model = genAI.getGenerativeModel({ 
